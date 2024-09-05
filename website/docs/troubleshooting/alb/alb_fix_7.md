@@ -3,7 +3,7 @@ title: "Section 3 - Fixing Manifest Configs"
 sidebar_position: 32
 ---
 
-We are almost done, now let's troubleshoot a scenario where the ALB is not properly registering the Kubernetes service endpoints. Again, it offers detailed guidance and configuration samples to assist in identifying and fixing this type of issue.
+We are almost done! Now let's troubleshoot a scenario where the ALB is not properly registering the Kubernetes service endpoints. Again, we will go through guided steps with configuration samples to assist in identifying and fixing this issue.
 
 ### Step 7
 

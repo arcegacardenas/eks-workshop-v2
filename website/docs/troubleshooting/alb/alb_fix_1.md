@@ -3,7 +3,7 @@ title: "Section 1 - Fixing Tag Issue"
 sidebar_position: 30
 ---
 
-The task for you in this troubleshooting scenario is to investigate the deployment for AWS Load Balancer Controller as well as the ingress object created by following the prompts with the script. At the end of this session, you should be able to see the ui app on your EKS cluster using ALB ingress through the browsers as depicted in the image.
+The task for you in this troubleshooting scenario is to investigate the issues encountered during the deployment of the AWS Load Balancer Controller including the ingress object. At the end of this session, you should be able to see the *ui* app on the browser as depicted on the final section of the scenario.
 
 ![ingress](./assets/ingress.webp)
 
@@ -30,14 +30,14 @@ $ kubectl get ingress/ui -n ui
 NAME   CLASS   HOSTS   ADDRESS   PORTS   AGE
 ui     alb     *                 80      105s
 
-#---This is the expected output when the ingress was deployed correctly--
+#---This is the expected output when the ingress is deployed correctly--
 NAME           CLASS    HOSTS   ADDRESS                                                                   PORTS   AGE
 ingress-2048   <none>   *       k8s-ui-ingress2-xxxxxxxxxx-yyyyyyyyyy.region-code.elb.amazonaws.com   80      2m32s
 ```
 
 ### Step 3
 
-Check further into the ingress for any events indicating why we do not see the ALB DNS. You can retrieve those logs by running the following command. The event logs should point you towards what the issue might be with ingress creation.
+Check further into the ingress for any events indicating why we do not see the ALB DNS. You can retrieve those logs by running the following command below. The event logs should point you towards what the issue might be with ingress creation.
 
 ```bash
 $ kubectl describe ingress/ui -n ui
@@ -61,8 +61,14 @@ Events:
   Warning  FailedBuildModel  2m23s (x16 over 5m9s)  ingress  Failed build model due to couldn't auto-discover subnets: unable to resolve at least one subnet (0 match VPC and tags: [kubernetes.io/role/elb])
 
 ```
+<<<<<<< Updated upstream
 
 Refer the documentation on prerequisites for setting up [ALB with EKS](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/deploy/subnet_discovery/)
+=======
+:::info
+Refer the documentation on prerequisites for setting up ALB with EKS: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/deploy/subnet_discovery/
+:::
+>>>>>>> Stashed changes
 
 ### Step 4
 

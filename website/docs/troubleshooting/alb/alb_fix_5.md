@@ -3,7 +3,7 @@ title: "Section 2 - Fixing Policy Issue"
 sidebar_position: 31
 ---
 
-In this section we will cover a specific troubleshooting step to address issues where the ALB is not properly forwarding traffic to the target groups. It provides step-by-step instructions and relevant configuration examples to help resolve this problem.
+In this section we will cover a specific troubleshooting step to address an issue where the ALB is not properly forwarding traffic to the target groups. We will go through step-by-step instructions and relevant configuration examples to help resolve this problem.
 
 ### Step 5
 
