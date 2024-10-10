@@ -226,12 +226,11 @@ Alternatively, you can also check the console for the same. Click the button bel
 Based on the routes configured on the Route table, we can see there is only a local route (10.42.0.0/16) and no route to the internet. In order for the worker node to communicate with the required services, it will need to reach the internet. To keep the environment more secure from the internet, we can configure a NAT gateway to allow outgoing traffic only. There is already a NAT gateway which is in use for this cluster, so please go ahead and configure this to help worker nodes join the cluster. 
 
 :::info
-**Note:** _For your convenience we have added the NatGateway ID as env variable with the variable `$NEW_NODEGROUP_2_NATGATEWAY_ID`._
+**Note:** _For your convenience we have added the NatGateway ID as env variable with the variable `$DEFAULT_NODEGROUP_NATGATEWAY_ID`._
 :::
 
 ```bash
 $ aws ec2 create-route --route-table-id rtb-048da4543e0412540 --destination-cidr-block 0.0.0.0/0 --nat-gateway-id nat-00fb7659f39275369
-
 ```
 
 Describe the route table to see the newly added route: 
@@ -271,9 +270,7 @@ Alternatively, you can also use the console for the same. Click the button below
 
 ### Step 6
 
-Now that the new route has been set
-
-Finally, we can start up a new node by decreasing the managed node group desired count to 0 and then back to 1. 
+Now that the new route has been set, we can start up a new node by decreasing the managed node group desired count to 0 and then back to 1. 
 
 The script below will modify desiredSize to 0, wait for the nodegroup status to transition from InProgress to Active, then exit.
 ```bash

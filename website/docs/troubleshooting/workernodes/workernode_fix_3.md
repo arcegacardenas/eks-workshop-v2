@@ -228,18 +228,3 @@ Aside from this, other factors that can lead to unknown status include:
 - __Kubelet issues.__ If kubelet encountered an issue it can prevent communication to the control plane. An example of when a kubelet can encounter issue is when customizing the worker node AMI/launchtemplate and modifies the kubelet or OS. 
 
 Please review the troubleshooting document [here](https://repost.aws/knowledge-center/eks-node-status-ready) to learn about troubleshooting nodes in the NotReady or Unknown status.
-
-
-:::info
-Alternatively, you can also check the console for the same. Click the button below to open the EKS Console. 
-<ConsoleButton
-  url="https://us-west-2.console.aws.amazon.com/eks/home?region=us-west-2#clusters/eks-workshop?selectedTab=cluster-compute-tab"
-  service="eks"
-  label="Open EKS Cluster Compute Tab"
-/>
-:::
-
-
-
-
-https://repost.aws/knowledge-center/eks-node-status-ready
