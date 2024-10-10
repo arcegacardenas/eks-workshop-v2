@@ -197,7 +197,7 @@ $ aws ec2 describe-launch-template-versions --launch-template-id ${NEW_NODEGROUP
                         "DeviceName": "/dev/xvda",
                         "Ebs": {
      --->>>                 "Encrypted": true,
-     --->>>                 "KmsKeyId": "arn:aws:kms:us-west-2:012345678901:key/1234abcd-1234-abcd-1234-1234abcd1234",
+     --->>>                 "KmsKeyId": "arn:aws:kms:us-west-2:xxxxxxxxxxxx:key/xxxxxxxxxxxx",
                             "VolumeSize": 20,
                             "VolumeType": "gp2"
                         }
