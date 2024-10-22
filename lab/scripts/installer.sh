@@ -3,30 +3,33 @@
 set -e
 
 # renovate: depName=kubernetes/kubernetes
-kubectl_version='1.30.3'
+kubectl_version='1.30.5'
 
 # renovate: depName=helm/helm
-helm_version='3.15.3'
+helm_version='3.16.1'
 
 # renovate: depName=eksctl-io/eksctl
-eksctl_version='0.188.0'
+eksctl_version='0.190.0'
 
 kubeseal_version='0.18.4'
 
 # renovate: depName=mikefarah/yq
-yq_version='4.44.2'
+yq_version='4.44.3'
 
 # renovate: depName=fluxcd/flux2
-flux_version='2.3.0'
+flux_version='2.4.0'
 
 # renovate: depName=argoproj/argo-cd
-argocd_version='2.11.7'
+argocd_version='2.12.4'
 
 # renovate: depName=hashicorp/terraform
-terraform_version='1.9.3'
+terraform_version='1.9.6'
 
 # renovate: depName=aws/amazon-ec2-instance-selector
 ec2_instance_selector_version='2.4.1'
+
+# renovate: depName=hatoo/oha
+oha_version='1.4.6'
 
 download () {
   url=$1
@@ -131,6 +134,11 @@ mv ./argocd /usr/local/bin/argocd
 download "https://github.com/aws/amazon-ec2-instance-selector/releases/download/v${ec2_instance_selector_version}/ec2-instance-selector-linux-${arch_name}" "ec2-instance-selector"
 chmod +x ./ec2-instance-selector
 mv ./ec2-instance-selector /usr/local/bin/ec2-instance-selector
+
+# oha
+download "https://github.com/hatoo/oha/releases/download/v${oha_version}/oha-linux-${arch_name}" "oha"
+chmod +x ./oha
+mv ./oha /usr/local/bin
 
 REPOSITORY_OWNER=${REPOSITORY_OWNER:-"aws-samples"}
 REPOSITORY_NAME=${REPOSITORY_NAME:-"eks-workshop-v2"}

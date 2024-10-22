@@ -1,3 +1,7 @@
+locals {
+  namespace = "kube-system"
+}
+
 terraform {
   required_providers {
     kubectl = {
@@ -6,34 +10,79 @@ terraform {
     }
   }
 }
-
 provider "aws" {
   region = "us-east-1"
   alias  = "virginia"
 }
-
 data "aws_ecrpublic_authorization_token" "token" {
   provider = aws.virginia
 }
 
-module "eks_blueprints_addons" {
-  source  = "aws-ia/eks-blueprints-addons/aws"
-  version = "1.16.3"
+# Pod identity for Karpenter
 
-  enable_karpenter = true
+resource "aws_eks_addon" "pod_identity" {
+  cluster_name                = var.addon_context.eks_cluster_id
+  addon_name                  = "eks-pod-identity-agent"
+  resolve_conflicts_on_create = "OVERWRITE"
+  preserve                    = false
+}
 
-  karpenter_enable_spot_termination          = true
-  karpenter_enable_instance_profile_creation = true
-  karpenter = {
-    chart_version       = var.karpenter_version
-    repository_username = data.aws_ecrpublic_authorization_token.token.user_name
-    repository_password = data.aws_ecrpublic_authorization_token.token.password
+# Karpenter controller & Node IAM roles, SQS Queue, Eventbridge Rules
+
+module "karpenter" {
+  source  = "terraform-aws-modules/eks/aws//modules/karpenter"
+  version = "20.24.0"
+
+  cluster_name          = var.addon_context.eks_cluster_id
+  enable_v1_permissions = true
+  namespace             = local.namespace
+
+  iam_role_name                   = "${var.addon_context.eks_cluster_id}-karpenter-controller"
+  iam_role_use_name_prefix        = false
+  iam_policy_name                 = "${var.addon_context.eks_cluster_id}-karpenter-controller"
+  iam_policy_use_name_prefix      = false
+  node_iam_role_name              = "${var.addon_context.eks_cluster_id}-karpenter-node"
+  node_iam_role_use_name_prefix   = false
+  queue_name                      = "${var.addon_context.eks_cluster_id}-karpenter"
+  rule_name_prefix                = "eks-workshop"
+  create_pod_identity_association = true
+
+  tags = {
+    created-by = "eks-workshop-v2"
+    env        = var.addon_context.eks_cluster_id
   }
+}
 
-  cluster_name      = var.addon_context.eks_cluster_id
-  cluster_endpoint  = var.addon_context.aws_eks_cluster_endpoint
-  cluster_version   = var.eks_cluster_version
-  oidc_provider_arn = var.addon_context.eks_oidc_provider_arn
+# Helm chart
+
+resource "helm_release" "karpenter" {
+  name                = "karpenter"
+  namespace           = local.namespace
+  create_namespace    = true
+  repository          = "oci://public.ecr.aws/karpenter"
+  repository_username = data.aws_ecrpublic_authorization_token.token.user_name
+  repository_password = data.aws_ecrpublic_authorization_token.token.password
+  chart               = "karpenter"
+  version             = var.karpenter_version
+  wait                = true
+
+  values = [
+    <<-EOT
+    settings:
+      clusterName: ${var.addon_context.eks_cluster_id}
+      clusterEndpoint: ${var.addon_context.aws_eks_cluster_endpoint}
+      interruptionQueue: ${module.karpenter.queue_name}
+    tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+    EOT
+  ]
+
+  lifecycle {
+    ignore_changes = [
+      repository_password
+    ]
+  }
 }
 
 data "aws_subnets" "private" {
@@ -49,16 +98,15 @@ data "aws_subnets" "private" {
 }
 
 resource "aws_s3_bucket" "inference" {
-  bucket_prefix = "eksworkshop-inference"
+  bucket_prefix = "${var.addon_context.eks_cluster_id}-inference"
   force_destroy = true
 
   tags = var.tags
 }
 
-
 module "iam_assumable_role_inference" {
   source                        = "terraform-aws-modules/iam/aws//modules/iam-assumable-role-with-oidc"
-  version                       = "5.39.1"
+  version                       = "5.44.0"
   create_role                   = true
   role_name                     = "${var.addon_context.eks_cluster_id}-inference"
   provider_url                  = var.addon_context.eks_oidc_issuer_url
@@ -91,11 +139,11 @@ EOF
 }
 
 data "http" "neuron_device_plugin_rbac_manifest" {
-  url = "https://raw.githubusercontent.com/aws-neuron/aws-neuron-sdk/v2.6.0/src/k8/k8s-neuron-device-plugin-rbac.yml"
+  url = "https://raw.githubusercontent.com/aws-neuron/aws-neuron-sdk/v2.20.0/src/k8/k8s-neuron-device-plugin-rbac.yml"
 }
 
 data "http" "neuron_device_plugin_manifest" {
-  url = "https://raw.githubusercontent.com/aws-neuron/aws-neuron-sdk/v2.6.0/src/k8/k8s-neuron-device-plugin.yml"
+  url = "https://raw.githubusercontent.com/aws-neuron/aws-neuron-sdk/v2.20.0/src/k8/k8s-neuron-device-plugin.yml"
 }
 
 data "kubectl_file_documents" "neuron_device_plugin_rbac_doc" {
