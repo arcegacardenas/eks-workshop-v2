@@ -63,9 +63,14 @@ Events:
 ```
 :::info
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 Refer the documentation on prerequisites for setting up [ALB with EKS](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/deploy/subnet_discovery/)
 :::
 
+=======
+Refer the documentation on prerequisites for setting up ALB with EKS: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/deploy/subnet_discovery/
+:::
+>>>>>>> Stashed changes
 =======
 Refer the documentation on prerequisites for setting up ALB with EKS: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/deploy/subnet_discovery/
 :::
