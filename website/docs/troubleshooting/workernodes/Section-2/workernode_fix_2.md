@@ -1,19 +1,19 @@
 ---
-title: "Section 2 - Node Join Failure"
+title: "Node Join Failure"
 sidebar_position: 31
 ---
 
 :::tip Before you start
 Prepare your environment for this section:
 
-```bash timeout=600 wait=300
+```bash timeout=600 wait=400
 $ prepare-environment troubleshooting/workernodes/two
 ```
 
 The preparation of the lab might take a couple of minutes and it will make the following changes to your lab environment:
 
-    - Create a new managed node group called new_nodegroup_2
-    - Introduce a problem to the managed node group which causes node to not join
+    - Create a new managed node group called ___new_nodegroup_2___
+    - Introduce a problem to the managed node group which causes node to ___not join___
     - Set desired managed node group count to 1
 
 :::
@@ -23,9 +23,9 @@ Corporate XYZ's e-commerce platform has been steadily growing, and the engineeri
 
 Sam, an experienced DevOps engineer, has been tasked with executing this expansion plan. Sam begins by creating a new VPC subnet in the us-west-2 region, with a new CIDR block. The goal is to have the new managed node group run the application workloads in this new subnet, separate from the existing node groups.
 
-After creating the new subnet, Sam proceeds to configure the new managed node group _new_node_group_2_ in the EKS cluster. During the node group creation process, Sam notices that the new nodes are not visible in the EKS cluster and not joining the cluster.
+After creating the new subnet, Sam proceeds to configure the new managed node group ___new_node_group_2___ in the EKS cluster. During the node group creation process, Sam notices that the new nodes are not visible in the EKS cluster and not joining the cluster.
 
-Can you help X identify the root cause of the node group issue and suggest the necessary steps to resolve the problem, so the new nodes can join the cluster?
+Can you help Sam identify the root cause of the node group issue and suggest the necessary steps to resolve the problem, so the new nodes can join the cluster?
 
 ### Step 1
 
@@ -87,7 +87,6 @@ Now that we've confirmed that the nodegroup exists, we can narrow this down furt
 ```bash
 $ aws autoscaling describe-scaling-activities --auto-scaling-group-name ${NEW_NODEGROUP_2_ASG_NAME} --query 'Activities[*].{AutoScalingGroupName:AutoScalingGroupName,Description:Description,Cause:Cause,StatusCode:StatusCode}'
 
-$ aws autoscaling describe-scaling-activities --auto-scaling-group-name ${NEW_NODEGROUP_2_ASG_NAME}
 {
     "Activities": [
         {
@@ -201,7 +200,7 @@ Then describe the route table for the current routes.
 :::
 
 ```bash
-$ aws ec2 describe-route-tables --route-table-ids rtb-048da4543e0412540 --query 'RouteTables[0].Routes'
+$ aws ec2 describe-route-tables --route-table-ids $NEW_NODEGROUP_2_ROUTETABLE_ID --query 'RouteTables[0].Routes'
 
 [
     {
@@ -229,18 +228,25 @@ Based on the routes configured on the Route table, we can see there is only a lo
 **Note:** _For your convenience we have added the NatGateway ID as env variable with the variable `$DEFAULT_NODEGROUP_NATGATEWAY_ID`._
 :::
 
+The command below will add a route to CIDR block 0.0.0.0/0 the the existing NAT gateway.
+
 ```bash
-$ aws ec2 create-route --route-table-id rtb-048da4543e0412540 --destination-cidr-block 0.0.0.0/0 --nat-gateway-id nat-00fb7659f39275369
+$ aws ec2 create-route --route-table-id $NEW_NODEGROUP_2_ROUTETABLE_ID --destination-cidr-block 0.0.0.0/0 --nat-gateway-id $DEFAULT_NODEGROUP_NATGATEWAY_ID
+
+{
+    "Return": true
+}
+
 ```
 
 Describe the route table to see the newly added route: 
 
 ```bash
-$ aws ec2 describe-route-tables --route-table-ids rtb-048da4543e0412540 --query 'RouteTables[*].{RouteTableId:RouteTableId,VpcId:VpcId,Routes:Routes}'
+$ aws ec2 describe-route-tables --route-table-ids $NEW_NODEGROUP_2_ROUTETABLE_ID --query 'RouteTables[*].{RouteTableId:RouteTableId,VpcId:VpcId,Routes:Routes}'
 [
     {
-        "RouteTableId": "rtb-048da4543e0412540",
-        "VpcId": "vpc-05f499ba6729f6b06",
+        "RouteTableId": "rtb-1234abcd1234abcd1",
+        "VpcId": "vpc-1234abcd1234abcd1",
         "Routes": [
             {
                 "DestinationCidrBlock": "10.42.0.0/16",
@@ -249,8 +255,8 @@ $ aws ec2 describe-route-tables --route-table-ids rtb-048da4543e0412540 --query 
                 "State": "active"
             },
             {
-                "DestinationCidrBlock": "0.0.0.0/0",
-                "NatGatewayId": "nat-00fb7659f39275369",
+                "DestinationCidrBlock": "0.0.0.0/0",            <<<---
+                "NatGatewayId": "nat-1234abcd1234abcd1",        <<<---
                 "Origin": "CreateRoute",
                 "State": "active"
             }
@@ -272,25 +278,70 @@ Alternatively, you can also use the console for the same. Click the button below
 
 Now that the new route has been set, we can start up a new node by decreasing the managed node group desired count to 0 and then back to 1. 
 
-The script below will modify desiredSize to 0, wait for the nodegroup status to transition from InProgress to Active, then exit.
-```bash
+The script below will modify desiredSize to 0, wait for the nodegroup status to transition from InProgress to Active, then exit. This can take up to about 30 seconds.
+```bash timeout=90 wait=60
 $ aws eks update-nodegroup-config --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_2 --scaling-config desiredSize=0 && aws eks wait nodegroup-active --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_2 && echo "Node group scaled down to 0" || { echo "Failed to scale down node group"; exit 1; }; 
 
+{
+    "update": {
+        "id": "abcd1234-1234-abcd-1234-1234abcd1234",
+        "status": "InProgress",
+        "type": "ConfigUpdate",
+        "params": [
+            {
+                "type": "DesiredSize",
+                "value": "0"
+            }
+        ],
+        "createdAt": "2024-10-23T14:33:09.671000+00:00",
+        "errors": []
+    }
+}
+Node group scaled down to 0
+
 ```
-Once the above command is successful, you can set the desiredSize back to 1.
-```bash
+Once the above command is successful, you can set the desiredSize back to 1. This can take up to about 30 seconds.
+
+```bash timeout=90 wait=60
 $ aws eks update-nodegroup-config --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_2 --scaling-config desiredSize=1 && aws eks wait nodegroup-active --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_2 && echo "Node group scaled up to 1" || { echo "Failed to scale up node group"; exit 1; }
 
+{
+    "update": {
+        "id": "abcd1234-1234-abcd-1234-1234abcd1234",
+        "status": "InProgress",
+        "type": "ConfigUpdate",
+        "params": [
+            {
+                "type": "DesiredSize",
+                "value": "1"
+            }
+        ],
+        "createdAt": "2024-10-23T14:37:41.899000+00:00",
+        "errors": []
+    }
+}
+Node group scaled up to 1
 ```
-If all goes well, after a minute you will see the new node join on the cluster. 
+If all goes well, you will see the new node join on the cluster after about up to one minute. 
 
-```bash
+```bash timeout=100 wait=70
 $ kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_2
 NAME                                          STATUS   ROLES    AGE    VERSION
 ip-10-42-108-252.us-west-2.compute.internal   Ready    <none>   3m9s   v1.30.0-eks-036c24b
 ```
 
-Wrapping up
+## Wrapping it up
 
-- other network issues - vpcendpoint
-- sg, nacl, route table
+In this section we covered an issues where network routing caused the worker node fail to join the cluster. In particular, worker nodes will not be able to join a cluster due to its requirement to reach AWS services during the bootstrapping process like EC2 (for VPC CNI activities), ECR (to pull containers), or S3 (to pull the actual image layers). By default, access to these services will be reached through a public endpoint (e.g. [EC2 public endpoint ec2.us-east-2.amazonaws.com](https://docs.aws.amazon.com/general/latest/gr/ec2-service.html#ec2_region)), but in this scenario there were no route configured to a NAT gateway on the route table, so we configured the appropriate route for the subnet. 
+
+This is one of various other networking configurations that can cause node join failures. Some other core components include:
+
+- Security group access. If security group needs stricter restrictions, it must maintain the minimum requirementes stated [here](https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html#security-group-restricting-cluster-traffic) for the cluster. 
+- Access Control Lists (ACL) is another component that can prevent required access between the cluster and worker nodes.
+
+Sometimes, EKS clusters may need to follow strict security requirements where the cluster can not have any inbound or outbound access to the internet. In such case, you can utilize [VPC endpoints](https://docs.aws.amazon.com/whitepapers/latest/aws-privatelink/what-are-vpc-endpoints.html) to allow private access to the required services. See the below resources for more details.
+- [AWS User Guide for Private Clusters](https://docs.aws.amazon.com/eks/latest/userguide/private-clusters.html)
+- [Configuring Private Access to additional AWS services - eksctl guide](https://eksctl.io/usage/eks-private-cluster/#configuring-private-access-to-additional-aws-services)
+
+
+For a full troubleshooting guide of joining worker nodes to the cluster, you can review the knowledge center article [here](https://repost.aws/knowledge-center/eks-worker-nodes-cluster).

@@ -1,3 +1,4 @@
+##To do - added nodegroup name as variable and change change to use the variable instead.
 
 
 #Custom LT issue
@@ -567,7 +568,7 @@ resource "null_resource" "modify_aws_auth_and_reboot" {
 
       if [ -n "$INSTANCE_ID" ]; then
         echo "Rebooting instance $INSTANCE_ID..."
-        sleep 10
+        sleep 15
         aws ec2 reboot-instances --instance-ids $INSTANCE_ID
         echo "Reboot command sent for instance $INSTANCE_ID"
       else

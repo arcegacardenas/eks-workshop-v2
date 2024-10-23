@@ -1,3 +1,7 @@
+##To do - added nodegroup name as variable and change change to use the variable instead.
+
+
+
 #Bootstrap failure due to vpc endpoint issue
 #could create issue due to subnet issue possiblly or ACL/network issue
 # - either do this and have nodes not show up instead of transitioning to not-ready OR try to create stress on node resources. For this one, there needs to be a follow up on what could cause it or how to troubleshoot further and prevent such things. 

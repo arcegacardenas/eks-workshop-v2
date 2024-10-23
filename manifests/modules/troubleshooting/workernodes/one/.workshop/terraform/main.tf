@@ -1,3 +1,8 @@
+##To do - added nodegroup name as variable and change change to use the variable instead.
+
+
+
+
 #I had to delete environment because my nodegroup went into degraded state. I tried to delete nodegroup bin, but reset-environment did not recreate node. 
 # Is there a terraform command I can use to recreate s particular resource from the base? 
 
@@ -82,10 +87,6 @@ resource "random_string" "random_suffix" {
   length  = 5
   special = false
   upper   = false
-}
-
-resource "aws_kms_key" "new_kms_key" {
-  # ... (existing code for creating the KMS key)
 }
 
 resource "aws_kms_alias" "new_kms_key_alias" {
@@ -215,12 +216,12 @@ resource "null_resource" "increase_desired_count" {
 
 #TESTING DESTROY COMMAND
 
-data "aws_vpc" "selected" {
-  tags = {
-    created-by = "eks-workshop-v2"
-    env        = var.addon_context.eks_cluster_id
-  }
-}
+# data "aws_vpc" "selected" {
+#   tags = {
+#     created-by = "eks-workshop-v2"
+#     env        = var.addon_context.eks_cluster_id
+#   }
+# }
 
 # resource "null_resource" "create_security_group" {
 

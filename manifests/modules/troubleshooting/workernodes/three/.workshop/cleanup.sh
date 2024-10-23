@@ -15,7 +15,7 @@
 INSTANCE_ID=$(kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_3 -o jsonpath='{.items[*].spec.providerID}' 2>/dev/null | cut -d '/' -f5 | cut -d ' ' -f1 | head -n1)
 
 if [ -z "$INSTANCE_ID" ]; then
-    logmessage "No instances found in nodegroup new_nodegroup_3. Please be sure to update aws-auth configmap and remove role for new_nodegroup_3 if you have not already."
+    logmessage "Ignore this message if this is your first time preparing the environment for this section. No instances found in nodegroup new_nodegroup_3. Please be sure to update aws-auth configmap and remove role for new_nodegroup_3 if you have not already."
 else
     logmessage "Found instance ID: $INSTANCE_ID"
 

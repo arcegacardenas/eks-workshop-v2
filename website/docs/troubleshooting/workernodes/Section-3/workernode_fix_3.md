@@ -1,12 +1,12 @@
 ---
-title: "Section 3 - Node in Not-Ready state"
+title: "Node in Not-Ready state"
 sidebar_position: 33
 ---
 
 :::tip Before you start
 Prepare your environment for this section:
 
-```bash timeout=600 wait=300
+```bash timeout=700 wait=500
 $ prepare-environment troubleshooting/workernodes/three
 ```
 
@@ -26,7 +26,7 @@ Now, the engineering team wants to ensure that the security and access control m
 
 Sam's main objective is to grant a new admin user access to the EKS Cluster. So he makes modification to the aws-auth configmap, which is responsible for mapping IAM users and roles to Kubernetes RBAC permissions. The goal is to grant specific users additional permissions to access and manage the EKS cluster.
 
-After making the changes to the AWS-Auth ConfigMap, the development team complains that they are not able to run any pods on the new managed nodegroup.Sam checks the Kubernetes events and logs, but does not find any obvious errors or issues. The EKS cluster status also appears to be healthy.
+After making the changes to the AWS-Auth ConfigMap, the development team complains that they are not able to run any pods on the new managed nodegroup. Sam checks the Kubernetes events and logs, but does not find any obvious errors or issues. The EKS cluster status also appears to be healthy.
 
 As time passes, Sam notices that the new worker node is transitioning to the __NotReady__ state, indicating that they are unable to reach the cluster and participate in the workload.
 
@@ -54,7 +54,7 @@ $ NEW_NODEGROUP_3_NODE_NAME=$(kubectl get nodes --selector=eks.amazonaws.com/nod
 First step after confirming node state is the check the node object itself. To check further into the node let's run a describe node and check for any signals pointing us more towards the problem. 
 
 :::info
-**Note:** We have modified the describe command so it will output node Conditions, Allocated resources, and Events to minimize the output. Lets go through one at a time. 
+**Note:** We have modified the describe command so it will output node Conditions, Allocated resources, and Events to minimize the output. Let's go through one at a time. 
 :::
 
 First let's check the output for Node Conditions. This is where we can see statuses for each for the conditions. Towards the right-end under Reason and Message, we can see the reason for the _Unknown_ status is due to Kubelet stop posting node status. 
@@ -112,19 +112,19 @@ Events:
   Warning  Unsupported              29m (x9 over 30m)  vpc-resource-controller  The instance type t3.medium is not supported for trunk interface (Security Group for Pods)
 ```
 
-Some important considerations when investigating node in _NotReady_ or _Unknown_ status is that this could be caused due to MemoryPressure, DiskcPressure, PIDPressure or any problem with the kubelet which can prevent it from sending heartbeats to the cluster's Control Plane. 
+Some important considerations when investigating node in _NotReady_ or _Unknown_ status is that this could be caused due to MemoryPressure, DiskcPressure, PIDPressure or any problem with the kubelet which can prevent it from sending heartbeats to the cluster's Control Plane. See the kubernetes [node-status document](https://kubernetes.io/docs/reference/node/node-status/#condition) for more details.
 
 ### Step 3
 
 When a node start up, there are necessary components that must be running to ensure proper pod assigning and proper service network configurations deployed for proper traffic flow from and to the worker node. We can check these components by ensuring these pods are up and running. Let's check with kube-proxy first which is a network proxy that enables service abstraction and load balancing in a Kubernetes cluster.
 
-```bash
+```bash expectError=true
 $ kubectl get pods --namespace=kube-system --selector=k8s-app=kube-proxy -o wide | grep $NEW_NODEGROUP_3_NODE_NAME
 kube-proxy-abcde   1/1     Running   0               127m    10.42.174.208   ip-10-42-174-208.us-west-2.compute.internal   <none>           <none>
 ```
 Looks like it is in the 1/1 running state. Next we can check the vpc cni (aws-node pod) which is a networking plugin for Kubernetes that enables pod networking in Amazon VPC environments, allowing pods to have the same IP address inside the cluster as they do on the AWS VPC network.
 
-```bash
+```bash expectError=true
 $ kubectl get pods --namespace=kube-system --selector=k8s-app=aws-node -o wide | grep $NEW_NODEGROUP_3_NODE_NAME
 aws-node-7f69d   0/2     PodInitializing   0               131m    10.42.174.208   ip-10-42-174-208.us-west-2.compute.internal   <none>           <none>
 ```
@@ -143,12 +143,11 @@ $ NEW_NODEGROUP_3_VPC_CNI_POD=$(kubectl get pods --namespace=kube-system --selec
 
 The pod in _PodInitializing_ indicates the pod is in the process up starting up, however we can see the 0/2 containers starts up successfully. So we can check logs for the first container to see if we get any more insight. 
 
-
-```bash
+```bash expectError=true
 $ kubectl logs $NEW_NODEGROUP_3_VPC_CNI_POD -n kube-system aws-node
 Error from server (InternalError): Internal error occurred: Authorization error (user=kube-apiserver-kubelet-client, verb=get, resource=nodes, subresource=proxy)
 ```
-There is an internal error pointing to an Authorization error between the api server kubelet client when initiating a get call for the worker node resource. In order for proper communication from the Cluster's API server and the worker node to occur, proper authentication followed by authorization must occur from the worker node.  
+There is an internal error pointing to an Authorization error between the API server's kubelet client when initiating a GET call for the worker node resource. In order for proper communication from the Cluster's API server and the worker node to occur, proper authentication followed by authorization must occur from the worker node.  
 
 We know that our devops engineer was working with aws-auth configmap to add new users so lets check out how the configmap looks. 
 
@@ -172,7 +171,7 @@ mapRoles:
 
 ```
 
-Looking closely at the node role arn, there appears to be a random string infront of new_nodegroup_3 (xnew_nodegroup_3). This does not look to belong there so let's confirm the node role. 
+Looking closely at the node role arn, there appears to be a random string infront of new_nodegroup_3 (xnew_nodegroup_3). This does not look to belong there so let's confirm the node role name. 
 
 :::info
 **Note:** _For your convenience we have added the Cluster name as env variable with the variable `$EKS_CLUSTER_NAME`._
@@ -197,29 +196,60 @@ Confirm that the configmap has been updated correctly and if it all looks good w
 $ kubectl describe configmap aws-auth -n kube-system
 ```
 ### Step 5
-
-The script below will modify desiredSize to 0, wait for the nodegroup status to transition from InProgress to Active, then exit. Please wait for the command to complete after execution.
-```bash
+To refresh the node we can decrease the managed node group desired count to 0 and then back to 1. The script below will modify desiredSize to 0, wait for the nodegroup status to transition from InProgress to Active, then exit. This can take up to about 30 seconds.
+```bash timeout=90 wait=60
 $ aws eks update-nodegroup-config --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_3 --scaling-config desiredSize=0 && aws eks wait nodegroup-active --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_3 && echo "Node group scaled down to 0" || { echo "Failed to scale down node group"; exit 1; }; 
 
+{
+    "update": {
+        "id": "abcd1234-1234-abcd-1234-1234abcd1234",
+        "status": "InProgress",
+        "type": "ConfigUpdate",
+        "params": [
+            {
+                "type": "DesiredSize",
+                "value": "0"
+            }
+        ],
+        "createdAt": "2024-10-23T16:56:03.522000+00:00",
+        "errors": []
+    }
+}
+Node group scaled down to 0
 ```
-Once the above command is successful, you can set the desiredSize back to 1.
-```bash
+Once the above command is successful, you can set the desiredSize back to 1. This can take up to about 30 seconds.
+```bash timeout=90 wait=60
 $ aws eks update-nodegroup-config --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_3 --scaling-config desiredSize=1 && aws eks wait nodegroup-active --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_3 && echo "Node group scaled up to 1" || { echo "Failed to scale up node group"; exit 1; }
 
+{
+    "update": {
+        "id": "abcd1234-1234-abcd-1234-1234abcd1234",
+        "status": "InProgress",
+        "type": "ConfigUpdate",
+        "params": [
+            {
+                "type": "DesiredSize",
+                "value": "1"
+            }
+        ],
+        "createdAt": "2024-10-23T16:57:21.859000+00:00",
+        "errors": []
+    }
+}
+Node group scaled up to 1
 ```
-If all goes well, after a minute you will see the new node join on the cluster in the Ready status. 
+If all goes well, you will see the new node join on the cluster after about up to one minute. 
 
-```bash
+```bash timeout=100 wait=70
 $ kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_3
 NAME                                          STATUS   ROLES    AGE    VERSION
-ip-10-42-174-208.us-west-2.compute.internal   Ready   <none>   3m13s   v1.xx.x-eks-a737599
+ip-10-42-174-206.us-west-2.compute.internal   Ready   <none>   3m13s   v1.xx.x-eks-a737599
 ```
 
-### Wrapping Up
+## Wrapping it up
 In this scenario, the Devops engineer managed the cluster access for IAM users using aws-auth configmap. There are several benefits of using [Access Entries](https://docs.aws.amazon.com/eks/latest/userguide/access-entries.html) over modifying the aws-auth ConfigMap in Amazon EKS. To name a few, it provides higher level of security and efficiency by managing accessibility through EKS API. In this scenario, the engineer was managing user access manually by editing the aws-auth configmap which led to accidental unwanted entries to the configmap. 
 
-There are several other scenarios when it comes to nodes in the NotReady or Unknown status. We've covered checking the Node Conditions and aws-node/kube-proxy pods in this scenario which led to use identifying permissions related errors. 
+There are several other scenarios when it comes to nodes in the _NotReady_ or _Unknown_ status. We've covered checking the Node Conditions and aws-node/kube-proxy pods in this scenario which led to use identifying permissions related errors. 
 
 Aside from this, other factors that can lead to unknown status include:
 

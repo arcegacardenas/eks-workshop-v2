@@ -1,19 +1,19 @@
 ---
-title: "Section 1 - Missing Worker Nodes"
+title: "Missing Worker Nodes"
 sidebar_position: 30
 ---
 
 :::tip Before you start
 Prepare your environment for this section:
 
-```bash timeout=600 wait=300
+```bash timeout=600 wait=400
 $ prepare-environment troubleshooting/workernodes/one
 ```
 
 The preparation of the lab might take a couple of minutes and it will make the following changes to your lab environment:
 
-    - Create a new managed node group called new_nodegroup_1
-    - Introduce a problem to the managed node group which causes node to not join
+    - Create a new managed node group called ___new_nodegroup_1___
+    - Introduce a problem to the managed node group which causes node to ___not join___
     - Set desired managed node group count to 1
 
 :::
@@ -21,20 +21,20 @@ The preparation of the lab might take a couple of minutes and it will make the f
 ### Background
 Corporate XYZ is in the process of launching a new e-commerce platform in the us-west-2 region. The EKS cluster running the platform is using Kubernetes version 1.30. During a recent security review, the security team identified several gaps in the cluster's security posture, including the need for encryption of node group volumes as they plan customize the AMI.
 
-The security team has provided specific recommendations to X, the engineer in charge of enhancing the security of the EKS environment. These include:
+The security team has provided specific recommendations to Sam, the engineer in charge of enhancing the security of the EKS environment. These include:
     * Enabling encryption for the node group volume.
     * Setting up best practice network configurations for the cluster.
     * Ensuring EKS Optmized AMIs are used.
     * Enabling Kubernetes auditing to capture and monitor all activities within the cluster.
 
-X, who has prior Kubernetes experience but is new to EKS, has been tasked with addressing these security concerns before the platform's launch next quarter. To start, X created a new managed node group named "new_nodegroup_1" in the us-west-2 region, but no new nodes have joined the cluster. During the troubleshooting process, X has checked the EKS cluster status and the node group configuration, but has not found any obvious errors or issues. The Kubernetes events and logs do not provide any clear indications of the problem either.
+Sam, who has prior Kubernetes experience but is new to EKS, has been tasked with addressing these security concerns before the platform's launch next quarter. To start, Sam created a new managed node group named ___new_nodegroup_1___ in the us-west-2 region, but no new nodes have joined the cluster. During the troubleshooting process, Sam has checked the EKS cluster status and the node group configuration, but has not found any obvious errors or issues. The Kubernetes events and logs do not provide any clear indications of the problem either.
 
-Can you help X identify the root cause of the node group issue and suggest the necessary steps to resolve the problem, so the new nodes can join the cluster, and the security enhancements can be implemented before the platform's launch?
+Can you help Sam identify the root cause of the node group issue and suggest the necessary steps to resolve the problem, so the new nodes can join the cluster, and the security enhancements can be implemented before the platform's launch?
 
 ### Step 1
 
-1. First step here is to confirm and verify what X your client has mentioned. Let's go ahead and check for the nodes.
-```bash
+1. First step here is to confirm and verify what Sam your client has mentioned. Let's go ahead and check for the nodes.
+```bash expectError=true timeout=60 hook=fix-1-1 hookTimeout=120
 $ kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_1
 No resources found
 ```
@@ -42,7 +42,7 @@ As you can see, there are no resources found for nodes launched from the new nod
 
 ### Step 2
 
-We know that X created a new managed nodegroup called new_node_group_1. Managed Nodegroups are responsible to creating nodes so can follow the chain of command from checking the node in the previous step to checking the nodegroup. 
+We know that Sam created a new managed nodegroup called new_node_group_1. Managed Nodegroups are responsible to creating nodes so can follow the chain of command from checking the node in the previous step to checking the nodegroup. 
 1. First, we want to see if the Managed nodegroup was created and see it's details. Some important and basic details to keep an eye out for are: 
 
    * Does the nodegroup exist?
@@ -382,31 +382,64 @@ The policy added should look similar to the below.
 
 Finally, we can start up a new node by decreasing the managed node group desired count to 0 and then back to 1. 
 
-The script below will modify desiredSize to 0, wait for the nodegroup status to transition from InProgress to Active, then exit.
-```bash
+The script below will modify desiredSize to 0, wait for the nodegroup status to transition from InProgress to Active, then exit. This can take up to about 30 seconds.
+```bash timeout=90 wait=60
 $ aws eks update-nodegroup-config --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_1 --scaling-config desiredSize=0 && aws eks wait nodegroup-active --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_1 && echo "Node group scaled down to 0" || { echo "Failed to scale down node group"; exit 1; }; 
 
+{
+    "update": {
+        "id": "abcd1234-1234-abcd-1234-1234abcd1234",
+        "status": "InProgress",
+        "type": "ConfigUpdate",
+        "params": [
+            {
+                "type": "DesiredSize",
+                "value": "0"
+            }
+        ],
+        "createdAt": "2024-10-23T14:33:09.671000+00:00",
+        "errors": []
+    }
+}
+Node group scaled down to 0
+
 ```
-Once the above command is successful, you can set the desiredSize back to 1.
-```bash
+Once the above command is successful, you can set the desiredSize back to 1. This can take up to about 30 seconds.
+```bash timeout=90 wait=60
 $ aws eks update-nodegroup-config --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_1 --scaling-config desiredSize=1 && aws eks wait nodegroup-active --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_1 && echo "Node group scaled up to 1" || { echo "Failed to scale up node group"; exit 1; }
 
+{
+    "update": {
+        "id": "abcd1234-1234-abcd-1234-1234abcd1234",
+        "status": "InProgress",
+        "type": "ConfigUpdate",
+        "params": [
+            {
+                "type": "DesiredSize",
+                "value": "1"
+            }
+        ],
+        "createdAt": "2024-10-23T14:37:41.899000+00:00",
+        "errors": []
+    }
+}
+Node group scaled up to 1
 ```
 If all goes well, you will see the nodegroup status change to __ACTIVE__ and new node joined on the cluster. 
 
-```bash
+```bash timeout=100 wait=70
 $ aws eks describe-nodegroup --cluster-name ${EKS_CLUSTER_NAME} --nodegroup-name new_nodegroup_1 --query 'nodegroup.status' --output text
 ACTIVE
 ```
 
-```bash
+```bash timeout=100 wait=70
 $ kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_1
 NAME                                          STATUS   ROLES    AGE    VERSION
 ip-10-42-108-252.us-west-2.compute.internal   Ready    <none>   3m9s   v1.30.0-eks-036c24b
 ```
 
 
-### Wrapping up 
+## Wrapping it up 
 In this troubleshooting scenario, we covered one of many issues which can prevent a node from joining a cluster. We covered an issue of improper permissions for the KMS key when encryption is configured to a launch template. Other instances where encryption can be configured are through [ekstcl](https://github.com/eksctl-io/eksctl/blob/main/examples/10-encrypted-volumes.yaml) and when EBS encryption is [enabled by deafult](https://docs.aws.amazon.com/ebs/latest/userguide/encryption-by-default.html). In any case, [Customer Managed Keys](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk) will require proper permissions for encryption for the AutoScaling service when using EKS Nodegroups. 
 
 When customizing Manage Nodegroup bootstrap, it is important to ensure the launch template is configured properly. Further configurations can be made for the Kubelet when specifying an AMI ID to the Launch Template. More information about EKS Launch Templates and Specifying an AMI, see the document below: 
@@ -421,5 +454,3 @@ _Other Related Resources_:
 
 
 
-##To do - added nodegroup name as variable and change change to use the variable instead.
-##May be good idea to move background under WorkerNode Scenarios directory?? this will need to update so it fits all scenarios. But then this will leave few things for cx's to do during envrionment deployment...
