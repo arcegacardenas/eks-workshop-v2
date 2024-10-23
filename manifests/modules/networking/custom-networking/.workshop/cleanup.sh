@@ -2,6 +2,8 @@
 
 set -e
 
+logmessage "WARNING! This lab takes additional time to clean up to ensure workshop stability, please be patient"
+
 logmessage "Deleting ENI configs..."
 
 kubectl delete ENIConfig --all -A
@@ -13,6 +15,8 @@ logmessage "Resetting VPC CNI configuration..."
 kubectl set env daemonset aws-node -n kube-system AWS_VPC_K8S_CNI_CUSTOM_NETWORK_CFG=false
 
 sleep 10
+
+kubectl delete namespace checkout
 
 logmessage "Terminating EKS worker nodes..."
 
@@ -31,3 +35,7 @@ if [ ! -z "$custom_nodegroup" ]; then
   aws eks delete-nodegroup --region $AWS_REGION --cluster-name $EKS_CLUSTER_NAME --nodegroup-name custom-networking
   aws eks wait nodegroup-deleted --cluster-name $EKS_CLUSTER_NAME --nodegroup-name custom-networking
 fi
+
+sleep 30
+
+kubectl wait --for=condition=Ready --timeout=15m pods -l app.kubernetes.io/created-by=eks-workshop -A
