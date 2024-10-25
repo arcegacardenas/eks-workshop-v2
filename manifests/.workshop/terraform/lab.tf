@@ -15,7 +15,7 @@ module "lab" {
   tags                      = local.tags
   resources_precreated      = var.resources_precreated
   #adding ami_release_version for test
-  ami_release_version       = var.ami_release_version
+  ami_release_version = var.ami_release_version
 }
 
 locals {

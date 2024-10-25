@@ -85,7 +85,8 @@ module "eks_blueprints_addons" {
 
   tags = merge(
     var.tags,
-    local.tags
+    local.tags,
+    locals.tags
   )
 
   depends_on = [null_resource.break_public_subnet]

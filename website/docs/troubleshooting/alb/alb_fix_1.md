@@ -3,7 +3,7 @@ title: "Section 1 - Fixing Tag Issue"
 sidebar_position: 30
 ---
 
-The task for you in this troubleshooting scenario is to investigate the issues encountered during the deployment of the AWS Load Balancer Controller including the ingress object. At the end of this session, you should be able to see the *ui* app on the browser as depicted on the final section of the scenario.
+The task for you in this troubleshooting scenario is to investigate the issues encountered during the deployment of the AWS Load Balancer Controller including the ingress object. At the end of this session, you should be able to see the _ui_ app on the browser as depicted on the final section of the scenario.
 
 ![ingress](./assets/ingress.webp)
 
@@ -61,25 +61,9 @@ Events:
   Warning  FailedBuildModel  2m23s (x16 over 5m9s)  ingress  Failed build model due to couldn't auto-discover subnets: unable to resolve at least one subnet (0 match VPC and tags: [kubernetes.io/role/elb])
 
 ```
-:::info
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-Refer the documentation on prerequisites for setting up [ALB with EKS](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/deploy/subnet_discovery/)
-:::
 
-=======
-Refer the documentation on prerequisites for setting up ALB with EKS: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/deploy/subnet_discovery/
+Refer the documentation on prerequisites for setting up [ALB](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/deploy/subnet_discovery/) with EKS.
 :::
->>>>>>> Stashed changes
-=======
-Refer the documentation on prerequisites for setting up ALB with EKS: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/deploy/subnet_discovery/
-:::
->>>>>>> Stashed changes
-=======
-Refer the documentation on prerequisites for setting up ALB with EKS: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/deploy/subnet_discovery/
-:::
->>>>>>> Stashed changes
 
 ### Step 4
 

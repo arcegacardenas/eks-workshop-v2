@@ -47,11 +47,11 @@ provider "aws" {
   alias  = "Oregon"
 }
 
-locals {
+/* locals {
   tags = {
     module = "troubleshooting"
   }
-}
+} */
 
 data "aws_subnets" "private" {
   tags = {
@@ -105,9 +105,9 @@ resource "aws_kms_alias" "new_kms_key_alias" {
 #get account ID and output it for use
 data "aws_caller_identity" "current" {}
 
-output "account_id" {
+/* output "account_id" {
   value = data.aws_caller_identity.current.account_id
-}
+} */
 
 ##creating policy document for key policy
 data "aws_iam_policy_document" "key_administrators_policy" {

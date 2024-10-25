@@ -42,50 +42,50 @@ provider "aws" {
   alias  = "Oregon"
 }
 
-locals {
+/* locals {
   tags = {
     module = "troubleshooting"
   }
 }
-
+ */
 data "aws_eks_cluster" "cluster" {
   name = var.eks_cluster_id
 }
 
-data "aws_region" "current" {}
+# data "aws_region" "current" {}
 
-data "aws_eks_node_group" "default" {
+/* data "aws_eks_node_group" "default" {
   cluster_name    = data.aws_eks_cluster.cluster.id
   node_group_name = "default"
-}
+} */
 
-data "aws_vpc" "selected" {
+/* data "aws_vpc" "selected" {
   tags = {
     created-by = "eks-workshop-v2"
     env        = var.addon_context.eks_cluster_id
   }
-}
+} */
 
-locals {
+/* locals {
   cluster_name    = data.aws_eks_cluster.cluster.name
   node_group_name = "default"
 }
-
+ */
 # data "aws_eks_node_group" "default" {
 #   cluster_name    = local.cluster_name
 #   node_group_name = local.node_group_name
 # }
 
-output "debug_locals" {
+/* output "debug_locals" {
   value = {
     cluster_name    = local.cluster_name
     node_group_name = local.node_group_name
   }
-}
+} */
 
-data "aws_ssm_parameter" "eks_ami" {
+/* data "aws_ssm_parameter" "eks_ami" {
   name = "/aws/service/eks/optimized-ami/${data.aws_eks_cluster.cluster.version}/amazon-linux-2/recommended/image_id"
-}
+} */
 
 
 
