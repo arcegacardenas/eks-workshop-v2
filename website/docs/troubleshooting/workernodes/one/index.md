@@ -180,6 +180,18 @@ Let's now dig deeper into the ASG by checking the Launch Template used to create
 
 1. You can find the Launch Template ID from the ASG or managed nodegroup. In this example we will use the ASG.
 
+```bash
+$ aws autoscaling describe-auto-scaling-groups \
+  --auto-scaling-group-names ${NEW_NODEGROUP_1_ASG_NAME} \
+  --query 'AutoScalingGroups[0].MixedInstancesPolicy.LaunchTemplate.LaunchTemplateSpecification.LaunchTemplateId' \
+  --output text
+```
+
+2. Now we can check the Launch Template contents for any hints of KMS configurations.
+   :::info
+   **Note:** _For your convenience we have added the Launch Template ID as env variable with the variable `$NEW_NODEGROUP_1_LT_ID`._
+   :::
+
    ```bash
    $ aws autoscaling describe-auto-scaling-groups \
    --auto-scaling-group-names ${NEW_NODEGROUP_1_ASG_NAME} \
@@ -357,7 +369,11 @@ The policy added should look similar to the below.
       "Sid": "EnableIAMUserPermissions",
       "Effect": "Allow",
       "Principal": {
+<<<<<<< Updated upstream:website/docs/troubleshooting/workernodes/one/index.md
         "AWS": "arn:aws:iam::1234567890:root"
+=======
+        "AWS": "arn:aws:iam::012345678901:root"
+>>>>>>> Stashed changes:website/docs/troubleshooting/workernodes/Section-1/workernode_fix_1.md
       },
       "Action": "kms:*",
       "Resource": "*"
@@ -366,7 +382,11 @@ The policy added should look similar to the below.
       "Sid": "AllowAutoScalingServiceRole",
       "Effect": "Allow",
       "Principal": {
+<<<<<<< Updated upstream:website/docs/troubleshooting/workernodes/one/index.md
         "AWS": "arn:aws:iam::1234567890:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+=======
+        "AWS": "arn:aws:iam::012345678901:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+>>>>>>> Stashed changes:website/docs/troubleshooting/workernodes/Section-1/workernode_fix_1.md
       },
       "Action": [
         "kms:Encrypt",
@@ -381,7 +401,11 @@ The policy added should look similar to the below.
       "Sid": "AllowAttachmentOfPersistentResources",
       "Effect": "Allow",
       "Principal": {
+<<<<<<< Updated upstream:website/docs/troubleshooting/workernodes/one/index.md
         "AWS": "arn:aws:iam::1234567890:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+=======
+        "AWS": "arn:aws:iam::012345678901:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+>>>>>>> Stashed changes:website/docs/troubleshooting/workernodes/Section-1/workernode_fix_1.md
       },
       "Action": "kms:CreateGrant",
       "Resource": "*",

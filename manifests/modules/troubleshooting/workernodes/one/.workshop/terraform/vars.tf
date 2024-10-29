@@ -3,7 +3,11 @@
   description = "Default EKS AMI release version for node groups"
   type        = string
   #  default     = "1.30.0-20240625"
+<<<<<<< Updated upstream
 } */
+=======
+}
+>>>>>>> Stashed changes
 
 
 # tflint-ignore: terraform_unused_declarations

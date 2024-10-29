@@ -61,9 +61,32 @@ Events:
   Warning  FailedBuildModel  2m23s (x16 over 5m9s)  ingress  Failed build model due to couldn't auto-discover subnets: unable to resolve at least one subnet (0 match VPC and tags: [kubernetes.io/role/elb])
 
 ```
+<<<<<<< Updated upstream
+=======
+
+:::info
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+Refer the documentation on prerequisites for setting up [ALB with EKS](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/deploy/subnet_discovery/)
+:::
+>>>>>>> Stashed changes
 
 Refer the documentation on prerequisites for setting up [ALB](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/deploy/subnet_discovery/) with EKS.
 :::
+<<<<<<< Updated upstream
+=======
+
+> > > > > > > # Stashed changes
+> > > > > > >
+> > > > > > > Refer the documentation on prerequisites for setting up ALB with EKS: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/deploy/subnet_discovery/
+> > > > > > > :::
+> > > > > > > Stashed changes
+> > > > > > > =======
+> > > > > > > Refer the documentation on prerequisites for setting up ALB with EKS: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/deploy/subnet_discovery/
+> > > > > > > :::
+> > > > > > > Stashed changes
+>>>>>>> Stashed changes
 
 ### Step 4
 
