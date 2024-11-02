@@ -5,28 +5,19 @@ before() {
 }
 
 after() {
-  sleep 120
+  sleep 10
 
-  export ui_endpoint=$(kubectl -n kube-system get ingress -n ui ui -o json | jq -r '.status.loadBalancer.ingress[0].hostname')
+  not_ready_node=$(kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_3)
 
-  if [ -z "$ui_endpoint" ]; then
-    >&2 echo "Failed to retrieve hostname from Ingress"
-    exit 1
-  fi
+  if [[ $not_ready_node == *"NotReady"* ]]; then
+    # Found "No resources found" - this is what we want, so exit successfully
+    echo "Success: Node in NotReady state found as expected"    
+    exit 0
+  fi  
+  # If we get here, it means we found resources when we shouldn't have
+  >&2 echo "expecting node in 'NotReady'. Found node in Ready or did not find any nodes in new_nodegroup_3"
+  exit 1
 
-  EXIT_CODE=0
-
-  timeout -s TERM 400 bash -c \
-    'while [[ "$(curl -s -o /dev/null -L -w ''%{http_code}'' ${ui_endpoint}/home)" != "200" ]];\
-    do sleep 20;\
-    done' || EXIT_CODE=$?
-
-  echo "Timeout completed"
-
-  if [ $EXIT_CODE -ne 0 ]; then
-    >&2 echo "Ingress did not become available after 400 seconds"
-    exit 1
-  fi
 }
 
 "$@"

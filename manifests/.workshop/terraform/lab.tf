@@ -1,10 +1,3 @@
-variable "ami_release_version" {
-  description = "Default EKS AMI release version for node groups"
-  type        = string
-  default     = "1.30.0-20240625"
-}
-#^^ adding for testing
-
 module "lab" {
   source = "./lab"
 
@@ -14,8 +7,6 @@ module "lab" {
   addon_context             = local.addon_context
   tags                      = local.tags
   resources_precreated      = var.resources_precreated
-  #adding ami_release_version for test
-  ami_release_version = var.ami_release_version
 }
 
 locals {

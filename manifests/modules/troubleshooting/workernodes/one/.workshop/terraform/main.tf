@@ -150,7 +150,7 @@ resource "aws_kms_key_policy" "example" {
 resource "aws_launch_template" "new_launch_template" {
   name = "new_nodegroup_1"
 
-  instance_type = "t3.medium"
+  instance_type = "m5.large"
 
   block_device_mappings {
     device_name = "/dev/xvda"

@@ -5,16 +5,17 @@ before() {
 }
 
 after() {
-  sleep 20
+  sleep 10
 
-  output_message=$(kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_1)
-
-  if [[ $output_message == *"No resources found"* ]]; then
-    >&2 echo "text Not found: Failed deploy module due to unexpected output. Expecting 'No resources found'"
-    exit 1
+  if kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_1 2>&1 | grep -q "No resources found"; then
+    echo "Success: No nodes found in nodegroup new_nodegroup_1 as expected"
+    exit 0
   fi  
 
-  EXIT_CODE=0
+  >&2 echo "Found nodes in nodegroup new_nodegroup_1 when expecting 'No resources found'"
+  exit 1
 }
+
+
 
 "$@"

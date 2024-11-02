@@ -10,7 +10,7 @@ sidebar_custom_props: { "module": true }
 :::tip Before you start
 Prepare your environment for this section:
 
-```bash timeout=600 wait=400
+```bash timeout=600 wait=30
 $ prepare-environment troubleshooting/workernodes/two
 ```
 
@@ -36,7 +36,7 @@ Can you help Sam identify the root cause of the node group issue and suggest the
 
 1. First let's confirm and verify what you have learned from the engineer to see if there are any nodes.
 
-```bash
+```bash timeout=30 hook=fix-2-1 hookTimeout=30
 $ kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_2
 No resources found
 ```
@@ -116,7 +116,7 @@ $ aws autoscaling describe-scaling-activities --auto-scaling-group-name ${NEW_NO
 :::info
 Alternatively, you can also check the console for the same. Click the button below to open the EKS Console. You can find the Autoscaling group name under the Details tab of the node group. Then you can click the Autoscaling group name to redirect to the ASG console. Then click the Activity tab to view the ASG activty history.
 <ConsoleButton
-  url="https://us-west-2.console.aws.amazon.com/eks/home?region=us-west-2#/clusters/eks-workshop/nodegroups/new_nodegroup_1"
+  url="https://us-west-2.console.aws.amazon.com/eks/home?region=us-west-2#/clusters/eks-workshop/nodegroups/new_nodegroup_2"
   service="eks"
   label="Open EKS cluster Nodegroup Tab"
 />
@@ -213,7 +213,7 @@ Then describe the route table for the current routes.
 **Note:** _For your convenience we have added the Subnet ID as env variable with the variable `$NEW_NODEGROUP_2_ROUTETABLE_ID`._
 :::
 
-```bash
+```bash timeout=15 hook=fix-2-2 hookTimeout=20
 $ aws ec2 describe-route-tables --route-table-ids $NEW_NODEGROUP_2_ROUTETABLE_ID --query 'RouteTables[0].Routes'
 
 [
@@ -297,7 +297,7 @@ Now that the new route has been set, we can start up a new node by decreasing th
 The script below will modify desiredSize to 0, wait for the nodegroup status to transition from InProgress to Active, then exit. This can take up to about 30 seconds.
 
 ```bash timeout=90 wait=60
-$ aws eks update-nodegroup-config --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_2 --scaling-config desiredSize=0 && aws eks wait nodegroup-active --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_2 && echo "Node group scaled down to 0" || { echo "Failed to scale down node group"; exit 1; };
+$ aws eks update-nodegroup-config --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_2 --scaling-config desiredSize=0; aws eks wait nodegroup-active --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_2; if [ $? -eq 0 ]; then echo "Node group scaled down to 0"; else echo "Failed to scale down node group"; exit 1; fi
 
 {
     "update": {
@@ -321,7 +321,7 @@ Node group scaled down to 0
 Once the above command is successful, you can set the desiredSize back to 1. This can take up to about 30 seconds.
 
 ```bash timeout=90 wait=60
-$ aws eks update-nodegroup-config --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_2 --scaling-config desiredSize=1 && aws eks wait nodegroup-active --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_2 && echo "Node group scaled up to 1" || { echo "Failed to scale up node group"; exit 1; }
+$ aws eks update-nodegroup-config --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_2 --scaling-config desiredSize=1 && aws eks wait nodegroup-active --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_2; if [ $? -eq 0 ]; then echo "Node group scaled up to 1"; else echo "Failed to scale up node group"; exit 1; fi
 
 {
     "update": {
@@ -343,7 +343,7 @@ Node group scaled up to 1
 
 If all goes well, you will see the new node join on the cluster after about up to one minute.
 
-```bash timeout=100 wait=70
+```bash timeout=100 hook=fix-2-3 hookTimeout=110 wait=70 
 $ kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_2
 NAME                                          STATUS   ROLES    AGE    VERSION
 ip-10-42-108-252.us-west-2.compute.internal   Ready    <none>   3m9s   v1.30.0-eks-036c24b

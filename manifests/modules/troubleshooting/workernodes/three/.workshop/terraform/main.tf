@@ -258,7 +258,7 @@ resource "aws_iam_role_policy_attachment" "ssm_managed_instance_core" {
 resource "aws_launch_template" "new_launch_template" {
   name = "new_nodegroup_3"
 
-  instance_type = "t3.medium"
+  instance_type = "m5.large"
 
   tag_specifications {
     resource_type = "instance"
@@ -568,9 +568,10 @@ resource "null_resource" "modify_aws_auth_and_reboot" {
 
       if [ -n "$INSTANCE_ID" ]; then
         echo "Rebooting instance $INSTANCE_ID..."
-        sleep 15
+        sleep 20
         aws ec2 reboot-instances --instance-ids $INSTANCE_ID
         echo "Reboot command sent for instance $INSTANCE_ID"
+        sleep 10
       else
         echo "No instance ID found for the node $NODE_NAME"
       fi

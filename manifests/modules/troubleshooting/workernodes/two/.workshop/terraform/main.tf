@@ -150,7 +150,7 @@ resource "aws_route_table_association" "new_subnet_association" {
 resource "aws_launch_template" "new_launch_template" {
   name = "new_nodegroup_2"
 
-  instance_type = "t3.medium"
+  instance_type = "m5.large"
 
   tag_specifications {
     resource_type = "instance"

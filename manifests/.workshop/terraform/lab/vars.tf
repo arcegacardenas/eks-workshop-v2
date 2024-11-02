@@ -1,11 +1,3 @@
-variable "ami_release_version" {
-  description = "Default EKS AMI release version for node groups"
-  type        = string
-  default     = "1.30.0-20240625"
-}
-
-#^^^adding for testing
-
 # tflint-ignore: terraform_unused_declarations
 variable "eks_cluster_id" {
   description = "EKS cluster name"

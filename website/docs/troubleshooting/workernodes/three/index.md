@@ -10,7 +10,7 @@ sidebar_custom_props: { "module": true }
 :::tip Before you start
 Prepare your environment for this section:
 
-```bash timeout=700 wait=500
+```bash timeout=700 wait=30
 $ prepare-environment troubleshooting/workernodes/three
 ```
 
@@ -40,7 +40,7 @@ Can you help Sam identify the root cause of the worker node issue and suggest th
 
 1. First let's confirm and verify what you have learned from the engineer to see if there is a node in **NotReady** state.
 
-```bash
+```bash timeout=40 hook=fix-3-1 hookTimeout=60 wait=30
 $ kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_3
 NAME                                          STATUS     ROLES    AGE     VERSION
 ip-10-42-174-208.us-west-2.compute.internal   NotReady   <none>   3m13s   v1.xx.x-eks-a737599
@@ -52,8 +52,16 @@ As you can see, we can confirm the node from _new_nodegroup_3_ is in NotReady st
 We will be gathering more information for this node throughout the scenario, so let's go ahead and add the node name as an environment variable. Please copy and paste the following in your terminal.
 
 ```bash
-$ NEW_NODEGROUP_3_NODE_NAME=$(kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_3 -o jsonpath='{.items[0].metadata.name}')
+$ export NEW_NODEGROUP_3_NODE_NAME=$(kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_3 | awk 'NR==2 {print $1}')
+
 ```
+You can confirm variable has taken.
+
+```bash
+$ echo $NEW_NODEGROUP_3_NODE_NAME
+```
+
+
 
 :::
 
@@ -129,14 +137,14 @@ Some important considerations when investigating node in _NotReady_ or _Unknown_
 
 When a node start up, there are necessary components that must be running to ensure proper pod assigning and proper service network configurations deployed for proper traffic flow from and to the worker node. We can check these components by ensuring these pods are up and running. Let's check with kube-proxy first which is a network proxy that enables service abstraction and load balancing in a Kubernetes cluster.
 
-```bash expectError=true
+```bash 
 $ kubectl get pods --namespace=kube-system --selector=k8s-app=kube-proxy -o wide | grep $NEW_NODEGROUP_3_NODE_NAME
 kube-proxy-abcde   1/1     Running   0               127m    10.42.174.208   ip-10-42-174-208.us-west-2.compute.internal   <none>           <none>
 ```
 
 Looks like it is in the 1/1 running state. Next we can check the vpc cni (aws-node pod) which is a networking plugin for Kubernetes that enables pod networking in Amazon VPC environments, allowing pods to have the same IP address inside the cluster as they do on the AWS VPC network.
 
-```bash expectError=true
+```bash timeout=20 hook=fix-3-2 hookTimeout=25 wait=15
 $ kubectl get pods --namespace=kube-system --selector=k8s-app=aws-node -o wide | grep $NEW_NODEGROUP_3_NODE_NAME
 aws-node-7f69d   0/2     PodInitializing   0               131m    10.42.174.208   ip-10-42-174-208.us-west-2.compute.internal   <none>           <none>
 ```
@@ -218,7 +226,7 @@ $ kubectl describe configmap aws-auth -n kube-system
 To refresh the node we can decrease the managed node group desired count to 0 and then back to 1. The script below will modify desiredSize to 0, wait for the nodegroup status to transition from InProgress to Active, then exit. This can take up to about 30 seconds.
 
 ```bash timeout=90 wait=60
-$ aws eks update-nodegroup-config --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_3 --scaling-config desiredSize=0 && aws eks wait nodegroup-active --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_3 && echo "Node group scaled down to 0" || { echo "Failed to scale down node group"; exit 1; };
+$ aws eks update-nodegroup-config --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_3 --scaling-config desiredSize=0; aws eks wait nodegroup-active --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_3; if [ $? -eq 0 ]; then echo "Node group scaled down to 0"; else echo "Failed to scale down node group"; exit 1; fi
 
 {
     "update": {
@@ -241,7 +249,7 @@ Node group scaled down to 0
 Once the above command is successful, you can set the desiredSize back to 1. This can take up to about 30 seconds.
 
 ```bash timeout=90 wait=60
-$ aws eks update-nodegroup-config --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_3 --scaling-config desiredSize=1 && aws eks wait nodegroup-active --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_3 && echo "Node group scaled up to 1" || { echo "Failed to scale up node group"; exit 1; }
+$ aws eks update-nodegroup-config --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_3 --scaling-config desiredSize=1 && aws eks wait nodegroup-active --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_3; if [ $? -eq 0 ]; then echo "Node group scaled up to 1"; else echo "Failed to scale up node group"; exit 1; fi
 
 {
     "update": {

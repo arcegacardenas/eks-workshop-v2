@@ -5,15 +5,14 @@ before() {
 }
 
 after() {
-  sleep 120
+  sleep 10
 
-  export ui_endpoint=$(kubectl -n kube-system get ingress -n ui ui -o json | jq -r '.status.loadBalancer.ingress[0].hostname')
+  if kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_2 2>&1 | grep -q "No resources found"; then
+    echo "Success: No nodes found in nodegroup new_nodegroup_2 as expected"
+    exit 0
+  fi  
 
-  if [ -z "$ui_endpoint" ]; then
-    >&2 echo "Failed to retrieve hostname from Service"
-    exit 1
-  fi
-
+  >&2 echo "Found nodes in nodegroup new_nodegroup_2 when expecting 'No resources found'"
+  exit 1
 }
-
 "$@"
