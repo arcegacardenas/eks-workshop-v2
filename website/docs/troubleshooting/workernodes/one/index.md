@@ -40,12 +40,10 @@ Can you help Sam identify the root cause of the node group issue and suggest the
 
 1. First step here is to confirm and verify what Sam your client has mentioned. Let's go ahead and check for the nodes.
 
-
 ```bash expectError=true timeout=60 hook=fix-1-1 hookTimeout=120
 $ kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_1
 No resources found
 ```
-
 
 As you can see, there are no resources found for nodes launched from the new nodegroup (new_nodegroup_1).
 
@@ -78,7 +76,6 @@ Alternatively, you can also check the console for the same. Click the button bel
   label="Open EKS Cluster Compute Tab"
 />
 :::
-
 
 ### Step 3
 
@@ -263,7 +260,6 @@ $ aws kms describe-key --key-id ${NEW_KMS_KEY_ID}
 }
 ```
 
-
 :::info
 Alternatively, you can also check the console for the same. Click the button below to open the KMS Console for Customer managed keys Console. The key will have an alias called _new_kms_key_alias_ followed by 5 random string (e.g. _new_kms_key_alias_123ab_):
 
@@ -279,7 +275,6 @@ It looks like the key is in **_Enabled_** state. In order to use the KMS Custome
 ### Step 6
 
 We can now check the key policy for the CMK.
-
 
 ```bash timeout=60 hook=fix-1-2 hookTimeout=10
 $ aws kms get-key-policy --key-id ${NEW_KMS_KEY_ID} | jq -r '.Policy | fromjson'
@@ -370,7 +365,6 @@ aws kms put-key-policy \
 
 ``` -->
 
-
 The policy added should look similar to the below.
 
 ```json
@@ -424,7 +418,6 @@ Finally, we can start up a new node by decreasing the managed node group desired
 
 The script below will modify desiredSize to 0, wait for the nodegroup status to transition from InProgress to Active, then exit. This can take up to about 30 seconds.
 
-
 ```bash timeout=90 wait=60
 $ aws eks update-nodegroup-config --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_1 --scaling-config desiredSize=0; aws eks wait nodegroup-active --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_1; if [ $? -eq 0 ]; then echo "Node group scaled down to 0"; else echo "Failed to scale down node group"; exit 1; fi
 
@@ -447,9 +440,7 @@ Node group scaled down to 0
 
 ```
 
-
 Once the above command is successful, you can set the desiredSize back to 1. This can take up to about 30 seconds.
-
 
 ```bash timeout=90 wait=60
 $ aws eks update-nodegroup-config --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_1 --scaling-config desiredSize=1 && aws eks wait nodegroup-active --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name new_nodegroup_1; if [ $? -eq 0 ]; then echo "Node group scaled up to 1"; else echo "Failed to scale up node group"; exit 1; fi

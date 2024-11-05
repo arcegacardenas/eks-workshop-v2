@@ -61,8 +61,6 @@ You can confirm variable has taken.
 $ echo $NEW_NODEGROUP_3_NODE_NAME
 ```
 
-
-
 :::
 
 ### Step 2

@@ -1,31 +1,5 @@
 ##To do - added nodegroup name as variable and change change to use the variable instead.
 
-
-
-#Bootstrap failure due to vpc endpoint issue
-#could create issue due to subnet issue possiblly or ACL/network issue
-# - either do this and have nodes not show up instead of transitioning to not-ready OR try to create stress on node resources. For this one, there needs to be a follow up on what could cause it or how to troubleshoot further and prevent such things. 
-# The only potential problem with network issue and node not showing up is that troubleshooting may be similar to first one... I don't think it's too similar though except for initial diagnosis. 
-#enable cloudwatch logs?? for troubleshooting labs?
-
-#Simulate a kernel panic: You can run the following command on the node to simulate a kernel panic:
-# sudo bash -c "echo 1 > /proc/sys/kernel/sysrq && echo c > /proc/sysrq-trigger"
-
-
-#
-#Does SSM work on original worker nodeS?
-
-
-#create a new managed nodegroup. first set it to desired 0 and use script to increase. (try to find a way node name. May be better to create launch template to make is easier to identity ec2 instance)
-# create a new subnet 10.42.192.0/19  (may need to update cluster config with new subnet?)
-
-### create a route table and associate with above subnet. The subnet's route table will only have local route and not route to the internet. 
-
-
-
-
-#Custom LT issue
-
 terraform {
   required_providers {
     #    kubectl = {
