@@ -3,6 +3,8 @@ title: "Node Join Failure"
 sidebar_position: 31
 chapter: true
 sidebar_custom_props: { "module": true }
+chapter: true
+sidebar_custom_props: { "module": true }
 ---
 
 ::required-time
@@ -29,6 +31,7 @@ Corporate XYZ's e-commerce platform has been steadily growing, and the engineeri
 Sam, an experienced DevOps engineer, has been tasked with executing this expansion plan. Sam begins by creating a new VPC subnet in the us-west-2 region, with a new CIDR block. The goal is to have the new managed node group run the application workloads in this new subnet, separate from the existing node groups.
 
 After creating the new subnet, Sam proceeds to configure the new managed node group **_new_node_group_2_** in the EKS cluster. During the node group creation process, Sam notices that the new nodes are not visible in the EKS cluster and not joining the cluster.
+After creating the new subnet, Sam proceeds to configure the new managed node group **_new_node_group_2_** in the EKS cluster. During the node group creation process, Sam notices that the new nodes are not visible in the EKS cluster and not joining the cluster.
 
 Can you help Sam identify the root cause of the node group issue and suggest the necessary steps to resolve the problem, so the new nodes can join the cluster?
 
@@ -48,7 +51,11 @@ As you can see, there are no resources found for nodes launched from the new nod
 Now that we know there are no nodes joined to the cluster, we can confirm if the worker node itself has been created or not. This can first be done by checking the managed nodegroup new_node_group_2 for its health and proper configurations.
 
 Some important and basic details to keep an eye out for are:
+Some important and basic details to keep an eye out for are:
 
+- Does the nodegroup exist?
+- Managed Node Group Status and health
+- Desired size
 - Does the nodegroup exist?
 - Managed Node Group Status and health
 - Desired size
@@ -58,6 +65,7 @@ $ aws eks describe-nodegroup --cluster-name eks-workshop --nodegroup-name new_no
 ```
 
 :::info
+Alternatively, you can also check the console for the same. Click the button below to open the EKS Console.
 Alternatively, you can also check the console for the same. Click the button below to open the EKS Console.
 <ConsoleButton
   url="https://us-west-2.console.aws.amazon.com/eks/home?region=us-west-2#clusters/eks-workshop?selectedTab=cluster-compute-tab"
@@ -89,6 +97,7 @@ As you have seen from the output, the managed nodegroup appears to be without an
             "issues": []
 ```
 
+Now that we've confirmed that the nodegroup exists, we can narrow this down further by checking the Autoscaling Group (ASG) which is the AWS component that performs scaling activities for the node.
 Now that we've confirmed that the nodegroup exists, we can narrow this down further by checking the Autoscaling Group (ASG) which is the AWS component that performs scaling activities for the node.
 
 :::info
@@ -159,6 +168,7 @@ $ aws ec2 describe-instances --instance-ids $NEW_NODEGROUP_2_INSTANCE_ID --query
 
 :::info
 Alternatively, you can also use the console for the same. Click the button below to open the EC2 Console.
+Alternatively, you can also use the console for the same. Click the button below to open the EC2 Console.
 <ConsoleButton
   url="https://us-west-2.console.aws.amazon.com/ec2/home?region=us-west-2#Instances:instanceState=running;search=troubleshooting-two-eks-workshop"
   service="ec2"
@@ -168,6 +178,7 @@ Alternatively, you can also use the console for the same. Click the button below
 
 ### Step 4
 
+The instance is in the running state! We are also aware that the Devops engineer created a new subnet, so we can start from the top by checking the subnet configurations and its associated route table configuration.
 The instance is in the running state! We are also aware that the Devops engineer created a new subnet, so we can start from the top by checking the subnet configurations and its associated route table configuration.
 
 :::info
@@ -188,6 +199,8 @@ $ aws ec2 describe-subnets --subnet-ids $NEW_NODEGROUP_2_SUBNET_ID --query 'Subn
 ```
 
 There are available Ip addresses, now lets check the route table for available routes. Keep in mind worker nodes will need certain network connectivity in order to make API calls to AWS services and pull container images (EC2, ECR, STS - for IAM role for service accounts). More information [here](https://docs.aws.amazon.com/eks/latest/userguide/private-clusters.html).
+
+First we can obtain the route table ID.
 
 First we can obtain the route table ID.
 
@@ -228,6 +241,7 @@ $ aws ec2 describe-route-tables --route-table-ids $NEW_NODEGROUP_2_ROUTETABLE_ID
 
 :::info
 Alternatively, you can also check the console for the same. Click the button below to open the VPC Console. For subnet details you can check the Details tab, and Route tables tab for route table routes.
+Alternatively, you can also check the console for the same. Click the button below to open the VPC Console. For subnet details you can check the Details tab, and Route tables tab for route table routes.
 <ConsoleButton
   url="https://us-west-2.console.aws.amazon.com/vpcconsole/home?region=us-west-2#subnets:search=NewPrivateSubnet"
   service="vpc"
@@ -237,6 +251,7 @@ Alternatively, you can also check the console for the same. Click the button bel
 
 ### Step 5
 
+Based on the routes configured on the Route table, we can see there is only a local route (10.42.0.0/16) and no route to the internet. In order for the worker node to communicate with the required services, it will need to reach the internet. To keep the environment more secure from the internet, we can configure a NAT gateway to allow outgoing traffic only. There is already a NAT gateway which is in use for this cluster, so please go ahead and configure this to help worker nodes join the cluster.
 Based on the routes configured on the Route table, we can see there is only a local route (10.42.0.0/16) and no route to the internet. In order for the worker node to communicate with the required services, it will need to reach the internet. To keep the environment more secure from the internet, we can configure a NAT gateway to allow outgoing traffic only. There is already a NAT gateway which is in use for this cluster, so please go ahead and configure this to help worker nodes join the cluster.
 
 :::info
@@ -254,6 +269,7 @@ $ aws ec2 create-route --route-table-id $NEW_NODEGROUP_2_ROUTETABLE_ID --destina
 
 ```
 
+Describe the route table to see the newly added route:
 Describe the route table to see the newly added route:
 
 ```bash
@@ -283,6 +299,7 @@ $ aws ec2 describe-route-tables --route-table-ids $NEW_NODEGROUP_2_ROUTETABLE_ID
 
 :::info
 Alternatively, you can also use the console for the same. Click the button below to open the VPC Console.
+Alternatively, you can also use the console for the same. Click the button below to open the VPC Console.
 <ConsoleButton
   url="https://us-west-2.console.aws.amazon.com/vpcconsole/home?region=us-west-2#subnets:search=NewPrivateSubnet"
   service="vpc"
@@ -292,6 +309,7 @@ Alternatively, you can also use the console for the same. Click the button below
 
 ### Step 6
 
+Now that the new route has been set, we can start up a new node by decreasing the managed node group desired count to 0 and then back to 1.
 Now that the new route has been set, we can start up a new node by decreasing the managed node group desired count to 0 and then back to 1.
 
 The script below will modify desiredSize to 0, wait for the nodegroup status to transition from InProgress to Active, then exit. This can take up to about 30 seconds.
@@ -343,7 +361,9 @@ Node group scaled up to 1
 
 If all goes well, you will see the new node join on the cluster after about up to one minute.
 
-```bash timeout=100 hook=fix-2-3 hookTimeout=110 wait=70 
+If all goes well, you will see the new node join on the cluster after about up to one minute.
+
+```bash timeout=100 hook=fix-2-3 hookTimeout=110 wait=70
 $ kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_2
 NAME                                          STATUS   ROLES    AGE    VERSION
 ip-10-42-108-252.us-west-2.compute.internal   Ready    <none>   3m9s   v1.30.0-eks-036c24b
@@ -352,9 +372,11 @@ ip-10-42-108-252.us-west-2.compute.internal   Ready    <none>   3m9s   v1.30.0-e
 ## Wrapping it up
 
 In this section we covered an issues where network routing caused the worker node fail to join the cluster. In particular, worker nodes will not be able to join a cluster due to its requirement to reach AWS services during the bootstrapping process like EC2 (for VPC CNI activities), ECR (to pull containers), or S3 (to pull the actual image layers). By default, access to these services will be reached through a public endpoint (e.g. [EC2 public endpoint ec2.us-east-2.amazonaws.com](https://docs.aws.amazon.com/general/latest/gr/ec2-service.html#ec2_region)), but in this scenario there were no route configured to a NAT gateway on the route table, so we configured the appropriate route for the subnet.
+In this section we covered an issues where network routing caused the worker node fail to join the cluster. In particular, worker nodes will not be able to join a cluster due to its requirement to reach AWS services during the bootstrapping process like EC2 (for VPC CNI activities), ECR (to pull containers), or S3 (to pull the actual image layers). By default, access to these services will be reached through a public endpoint (e.g. [EC2 public endpoint ec2.us-east-2.amazonaws.com](https://docs.aws.amazon.com/general/latest/gr/ec2-service.html#ec2_region)), but in this scenario there were no route configured to a NAT gateway on the route table, so we configured the appropriate route for the subnet.
 
 This is one of various other networking configurations that can cause node join failures. Some other core components include:
 
+- Security group access. If security group needs stricter restrictions, it must maintain the minimum requirementes stated [here](https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html#security-group-restricting-cluster-traffic) for the cluster.
 - Security group access. If security group needs stricter restrictions, it must maintain the minimum requirementes stated [here](https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html#security-group-restricting-cluster-traffic) for the cluster.
 - Access Control Lists (ACL) is another component that can prevent required access between the cluster and worker nodes.
 
