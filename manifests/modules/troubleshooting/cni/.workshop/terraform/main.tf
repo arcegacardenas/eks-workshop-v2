@@ -176,7 +176,7 @@ resource "null_resource" "change_config" {
 
       # Prepare configuration in one step
       CURRENT_CONFIG='${jsonencode(self.triggers.config)}'
-      NEW_CONFIG=$(echo $CURRENT_CONFIG | jq -r . | jq -c '. += {"resources":{"requests":{"Memory":"2Gi"}}}')
+      NEW_CONFIG=$(echo $CURRENT_CONFIG | jq -r . | jq -c '. += {"resources":{"requests":{"memory":"2Gi"}}}')
 
       # Update the addon and capture the operation ID
       echo "Updating VPC CNI addon..."
