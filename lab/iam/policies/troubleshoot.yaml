@@ -25,7 +25,8 @@ Statement:
       - !Sub arn:aws:iam::${AWS::AccountId}:role/aws-efs-csi-driver-*
       - !Sub arn:aws:iam::${AWS::AccountId}:role/eksworkshop-aws-load-balancer-controller
       - !Sub arn:aws:iam::${AWS::AccountId}:role/new_nodegroup_3
-      - !Sub arn:aws:iam::${AWS::AccountId}:role/${Env}-ecr-ec2-role       
+      - !Sub arn:aws:iam::${AWS::AccountId}:role/${Env}-ecr-ec2-role
+      - !Sub arn:aws:iam::${AWS::AccountId}:role/terraform-*       
 
   - Effect: Allow
     Action:
@@ -87,3 +88,10 @@ Statement:
     Condition:
       StringEquals:
         aws:ResourceTag/eks:nodegroup-name: "new_nodegroup_3"
+
+  - Effect: Allow
+    Action:
+      - ssm:SendCommand
+      - ssm:GetCommandInvocation
+      - ssm:DescribeInstanceInformation
+    Resource: "*"

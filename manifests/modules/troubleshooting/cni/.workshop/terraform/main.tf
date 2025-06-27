@@ -127,7 +127,7 @@ resource "aws_eks_node_group" "cni_troubleshooting_nodes" {
   node_role_arn   = aws_iam_role.node_role.arn
   subnet_ids      = aws_subnet.small_subnet[*].id
   # We pick instance with 4Gi Memory for the scenario to work
-  instance_types  = ["c5.large","c5a.large","c6a.large","c7a.large"]
+  instance_types = ["c5.large", "c5a.large", "c6a.large", "c7a.large"]
 
   scaling_config {
     desired_size = 0
@@ -165,7 +165,7 @@ resource "null_resource" "change_config" {
     cluster_name    = var.eks_cluster_id, # Changed to be consistent
     role_arn        = data.aws_eks_addon.vpc_cni.service_account_role_arn,
     node_group_name = aws_eks_node_group.cni_troubleshooting_nodes.node_group_name,
-    role_name       = split("/", data.aws_eks_addon.vpc_cni.service_account_role_arn)[1],
+    role_name       = data.aws_eks_addon.vpc_cni.service_account_role_arn != null ? basename(data.aws_eks_addon.vpc_cni.service_account_role_arn) : "",
     timestamp       = timestamp()
   }
 
