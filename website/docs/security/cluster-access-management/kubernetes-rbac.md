@@ -19,7 +19,7 @@ And this `RoleBinding` will map the Role to a Group named `carts-team`:
 
 ::yaml{file="manifests/modules/security/cam/rbac/rolebinding.yaml" paths="roleRef,subjects.0"}
 
-1. `roleRef` references the `carts-team-role` Role we created earlier 
+1. `roleRef` references the `carts-team-role` Role we created earlier
 2. `subjects` specifies that a Group named `carts-team` will get the permissions associated with the Role
 
 Let's apply these manifests:

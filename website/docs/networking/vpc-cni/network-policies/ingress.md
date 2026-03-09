@@ -44,7 +44,7 @@ Now, we'll define a network policy that will allow traffic to the 'catalog' serv
 ::yaml{file="manifests/modules/networking/network-policies/apply-network-policies/allow-catalog-ingress-webservice.yaml" paths="spec.podSelector,spec.ingress.0.from.0"}
 
 1. The `podSelector` targets pods with labels `app.kubernetes.io/name: catalog` and `app.kubernetes.io/component: service`
-2. This `ingress.from` configuration allows inbound connections only from pods running in the `ui` namespace identified by `kubernetes.io/metadata.name: ui` with label `app.kubernetes.io/name: ui` 
+2. This `ingress.from` configuration allows inbound connections only from pods running in the `ui` namespace identified by `kubernetes.io/metadata.name: ui` with label `app.kubernetes.io/name: ui`
 
 Lets apply the policy:
 

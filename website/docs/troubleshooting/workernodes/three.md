@@ -230,6 +230,7 @@ prod-ds-ll4lv               1/1     Running   0          1m
 ```
 
 #### 8.2. Check pod limits
+
 ```bash
 $ kubectl get pods -n prod -o custom-columns="NAME:.metadata.name,CPU_REQUEST:.spec.containers[*].resources.requests.cpu,MEM_REQUEST:.spec.containers[*].resources.requests.memory,CPU_LIMIT:.spec.containers[*].resources.limits.cpu,MEM_LIMIT:.spec.containers[*].resources.limits.memory"
 NAME                        CPU_REQUEST   MEM_REQUEST   CPU_LIMIT   MEM_LIMIT
@@ -243,6 +244,7 @@ prod-ds-srdqx               250m          256Mi         500m        512Mi
 ```
 
 #### 8.3 Check node CPU resource
+
 ```bash wait=300 test=false
 $ INSTANCE_ID=$(kubectl get node ${NODE_NAME_2} -o jsonpath='{.spec.providerID}' | cut -d '/' -f5) && aws cloudwatch get-metric-data --region $AWS_REGION --start-time $(date -u -d '1 hour ago' +"%Y-%m-%dT%H:%M:%SZ") --end-time $(date -u +"%Y-%m-%dT%H:%M:%SZ") --metric-data-queries '[{"Id":"cpu","MetricStat":{"Metric":{"Namespace":"AWS/EC2","MetricName":"CPUUtilization","Dimensions":[{"Name":"InstanceId","Value":"'$INSTANCE_ID'"}]},"Period":60,"Stat":"Average"}}]'
 {
@@ -264,9 +266,11 @@ $ INSTANCE_ID=$(kubectl get node ${NODE_NAME_2} -o jsonpath='{.spec.providerID}'
     "Messages": []
 }
 ```
+
 :::info
-Check that CPU is not over utilized. 
+Check that CPU is not over utilized.
 :::
+
 #### 8.4. Check node status
 
 ```bash

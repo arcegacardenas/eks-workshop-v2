@@ -23,12 +23,12 @@ $ export ACTIVATION_CODE=$(echo $ACTIVATION_JSON | jq -r ".ActivationCode")
 ```
 
 With our activation created, we can now create a `NodeConfig` which will be
-referenced when we join our instance to the cluster. 
+referenced when we join our instance to the cluster.
 
 ::yaml{file="manifests/modules/networking/eks-hybrid-nodes/nodeconfig.yaml" paths="spec.cluster,spec.hybrid.ssm"}
 
-1. Specify the target EKS cluster `name` and `region` using the  `$EKS_CLUSTER_NAME` and `$AWS_REGION` environment variables
-2. Specify the SSM `activationCode` and `activationId` by using the `$ACTIVATION_CODE` and `$ACTIVATION_ID` environment variables created in the previous step 
+1. Specify the target EKS cluster `name` and `region` using the `$EKS_CLUSTER_NAME` and `$AWS_REGION` environment variables
+2. Specify the SSM `activationCode` and `activationId` by using the `$ACTIVATION_CODE` and `$ACTIVATION_ID` environment variables created in the previous step
 
 ```bash
 $ cat ~/environment/eks-workshop/modules/networking/eks-hybrid-nodes/nodeconfig.yaml \

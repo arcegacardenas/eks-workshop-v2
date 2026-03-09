@@ -19,7 +19,7 @@ CoreDNS-6fdb8f5699-z57jw   0/1     Pending   0          42s
 We can see that CoreDNS pods are not running which clearly explains the DNS resolution issues in the cluster.
 
 :::info
-The pods are in Pending state, indicating they haven't been scheduled to any node. 
+The pods are in Pending state, indicating they haven't been scheduled to any node.
 :::
 
 ### Step 2 - Check pod events

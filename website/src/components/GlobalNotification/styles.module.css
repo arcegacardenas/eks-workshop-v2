@@ -10,7 +10,7 @@
   right: 20px;
   z-index: 1000;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   max-width: 400px;
   min-width: 300px;
   transform: translateX(100%);
@@ -73,7 +73,6 @@
 }
 
 .dismissButton:hover {
-  background-color: rgba(255,255,255,0.1);
+  background-color: rgba(255, 255, 255, 0.1);
   opacity: 1;
 }
-

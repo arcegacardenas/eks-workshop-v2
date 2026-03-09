@@ -41,7 +41,7 @@ spec:
       initContainers:
         - name: install
           image: busybox:1.28
-          command: [ "sh", "-c"]
+          command: ["sh", "-c"]
           args:
             - 'echo "Connected to $(POD_IP) on $(NODE_NAME)" > /work-dir/index.html'
           env:

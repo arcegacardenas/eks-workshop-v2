@@ -11,9 +11,7 @@ Before we dive into the implementation, below is a summary of the compute option
 
 - [Karpenter](https://karpenter.sh/): An open-source Kubernetes cluster autoscaler that automatically provisions right-sized compute resources in response to changing application load. Karpenter improves application availability and cluster efficiency by rapidly launching and terminating nodes as needed.
 
-
 - [AWS Fargate](https://docs.aws.amazon.com/eks/latest/userguide/fargate.html): A serverless compute engine for containers that eliminates the need to provision, configure, or scale groups of virtual machines. With Fargate, you focus on designing and building your applications instead of managing the infrastructure that runs them.
-
 
 It's also important to understand key concepts about [Kubernetes compute resources](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/):
 

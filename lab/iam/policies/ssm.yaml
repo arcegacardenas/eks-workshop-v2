@@ -1,7 +1,6 @@
 Version: "2012-10-17"
 Statement:
   - Effect: Allow
-    Action:
-      ssm:CreateActivation
+    Action: ssm:CreateActivation
     Resource:
       - !Sub arn:aws:iam::${AWS::AccountId}:role/${Env}-hybrid-node-role-*

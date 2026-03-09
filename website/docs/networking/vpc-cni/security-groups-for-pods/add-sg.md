@@ -68,7 +68,7 @@ In order for our Pod to use this security group, we need to use the `SecurityGro
 ::yaml{file="manifests/modules/networking/securitygroups-for-pods/sg/policy.yaml" paths="spec.podSelector,spec.securityGroups.groupIds"}
 
 1. The `podSelector` targets pods with label `app.kubernetes.io/component: service`
-2. The `CATALOG_SG_ID` environment variable we exported above contains the security group ID that will be mapped to the matching pods 
+2. The `CATALOG_SG_ID` environment variable we exported above contains the security group ID that will be mapped to the matching pods
 
 Apply this to the cluster then recycle the catalog Pods once again:
 

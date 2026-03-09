@@ -78,7 +78,7 @@ There are 4 Ingress rules and 2 Egress rules with the following details:
 - Egress all protocols/ports to anywhere (0.0.0.0/0) - Note the value True in column IsEgressRule.
 - Egress all protocols/ports to security group (sg-085fea48222262c24)
 - Ingress all protocols/ports from security group (sg-085fea48222262c24)
-- Ingress TCP port 443 from CIDR block 10.52.0.0/16 
+- Ingress TCP port 443 from CIDR block 10.52.0.0/16
 - Ingress TCP port 443 from CIDR block 10.53.0.0/16
 - Ingress all protocols/ports from security group (sg-094406793b2c02fb3)
   :::

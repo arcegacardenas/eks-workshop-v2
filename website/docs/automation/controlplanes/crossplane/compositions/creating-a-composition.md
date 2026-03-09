@@ -14,7 +14,7 @@ Let's start by providing a definition that allows application team members to cr
 
 </details>
 
-We can review the DynamoDB-specific configuration from the XRD manifest. 
+We can review the DynamoDB-specific configuration from the XRD manifest.
 
 Here is the section requiring the specification of the DynamoDB Table Name:
 
@@ -41,7 +41,7 @@ A Composition informs Crossplane about the actions to take when a Composite Reso
 
 </details>
 
-We can review this in several parts to make better sense of it. 
+We can review this in several parts to make better sense of it.
 
 This section maps the XR's `spec.name` field to the Managed Resource's external-name annotation, which Crossplane uses to set the actual DynamoDB table name in AWS.
 
@@ -62,7 +62,6 @@ This transfers the GSI name from the XR specification to the managed resource, a
 This maps LSI configurations from the XR to the managed resource, enabling Crossplane to provision local secondary indexes with their specified names and attributes.
 
 ::yaml{file="manifests/modules/automation/controlplanes/crossplane/compositions/composition/table.yaml" zoomPath="spec.resources.0.patches.11.toFieldPath" zoomBefore="2"}
-
 
 Let's apply this configuration to our EKS cluster:
 
