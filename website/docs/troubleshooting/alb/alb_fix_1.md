@@ -3,9 +3,15 @@ title: "ALB Not Creating"
 sidebar_position: 30
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 In this troubleshooting scenario, you'll investigate why the AWS Load Balancer Controller isn't creating an Application Load Balancer (ALB) for your ingress resource. By the end of this exercise, you'll be able to access the UI application through an ALB ingress as shown in the image below.
 
 ![ingress](/docs/troubleshooting/alb/ingress.webp)
+
+<Tabs>
+<TabItem value="manual" label="Manual" default>
 
 ## Let's start troubleshooting
 
@@ -161,3 +167,89 @@ This indicates we need to fix the IAM permissions for the Load Balancer Controll
 :::tip
 You can verify ALB creation attempts in CloudTrail by looking for CreateLoadBalancer API calls within the last hour.
 :::
+
+</TabItem>
+<TabItem value="devops-agent" label="DevOps Agent">
+
+:::info
+If you haven't set up the AWS DevOps Agent yet, complete the [DevOps Agent Setup](/docs/troubleshooting/devops-agent-setup) lab first.
+:::
+
+## Troubleshoot with DevOps Agent
+
+Instead of manually investigating each component, you can use the AWS DevOps Agent to diagnose and remediate the issue. The agent will inspect your EKS cluster, identify the root cause, and execute the fix via SSM on your Code Server instance.
+
+### Start a troubleshooting session
+
+Open the DevOps Agent operator app in your browser:
+
+```text
+https://us-east-1.console.aws.amazon.com/devopsagent/home?region=us-east-1#/agent-spaces
+```
+
+Select your agent space (`${EKS_CLUSTER_NAME}-devops-agent`) and start a new chat. Describe the issue:
+
+```text
+My ingress resource "ui" in namespace "ui" has no ALB address. The ADDRESS field is empty when I run kubectl get ingress/ui -n ui. Can you diagnose why the ALB is not being created and fix the issue?
+```
+
+```bash test=false
+$ aws devopsagent create-chat \
+  --agent-space-name "${DEVOPS_AGENT_SPACE_NAME}" \
+  --endpoint-url "https://api.prod.cp.aidevops.us-east-1.api.aws" \
+  --region us-east-1
+```
+
+### What the DevOps Agent does
+
+The DevOps Agent will:
+
+1. **Inspect the ingress resource** — Describe the ingress in the `ui` namespace and find the `FailedBuildModel` event
+2. **Identify the root cause** — Determine that the AWS Load Balancer Controller cannot discover subnets because public subnets are missing the `kubernetes.io/role/elb=1` tag
+3. **Execute remediation via SSM** — Tag the public subnets with `kubernetes.io/role/elb=1` and restart the Load Balancer Controller deployment
+
+<details>
+<summary>Example DevOps Agent diagnosis output</summary>
+
+```text
+🔍 Investigating ingress ui in namespace ui...
+
+Found ingress event: FailedBuildModel
+Message: "Failed build model due to couldn't auto-discover subnets: unable to resolve at least one subnet (0 match VPC and tags: [kubernetes.io/role/elb])"
+
+Root cause: Public subnets are missing the kubernetes.io/role/elb=1 tag required by the AWS Load Balancer Controller for subnet discovery.
+
+🔧 Remediation plan:
+1. Identify public subnets in the EKS VPC
+2. Tag public subnets with kubernetes.io/role/elb=1
+3. Restart the aws-load-balancer-controller deployment
+
+Executing remediation via SSM on Code Server instance...
+✅ Tagged 3 public subnets with kubernetes.io/role/elb=1
+✅ Restarted aws-load-balancer-controller deployment
+```
+
+</details>
+
+### Verify the fix
+
+After the DevOps Agent completes remediation, verify the subnets are tagged:
+
+```bash
+$ aws ec2 describe-subnets --filters 'Name=tag:kubernetes.io/role/elb,Values=1' --query 'Subnets[].SubnetId'
+```
+
+Check the ingress status — the ADDRESS field should now show an ALB DNS name:
+
+```bash timeout=300 hook=fix-1-agent
+$ kubectl get ingress/ui -n ui
+NAME   CLASS   HOSTS   ADDRESS                                                    PORTS   AGE
+ui     alb     *      k8s-ui-ingress-xxxxxxxxxx-yyyyyyyyyy.region.elb.amazonaws.com   80   5m
+```
+
+:::tip
+The DevOps Agent arrived at the same resolution as the manual approach: public subnets tagged with `kubernetes.io/role/elb=1` and the Load Balancer Controller restarted. The difference is the agent diagnosed and executed the fix autonomously.
+:::
+
+</TabItem>
+</Tabs>

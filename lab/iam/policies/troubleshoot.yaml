@@ -25,7 +25,7 @@ Statement:
       - !Sub arn:aws:iam::${AWS::AccountId}:role/aws-efs-csi-driver-*
       - !Sub arn:aws:iam::${AWS::AccountId}:role/eksworkshop-aws-load-balancer-controller
       - !Sub arn:aws:iam::${AWS::AccountId}:role/new_nodegroup_3
-      - !Sub arn:aws:iam::${AWS::AccountId}:role/${Env}-ecr-ec2-role       
+      - !Sub arn:aws:iam::${AWS::AccountId}:role/${Env}-ecr-ec2-role
 
   - Effect: Allow
     Action:
@@ -34,7 +34,7 @@ Statement:
     Resource: !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:security-group/*
     Condition:
       StringEquals:
-        'aws:ResourceTag/env': ${var.eks_cluster_id}
+        "aws:ResourceTag/env": ${var.eks_cluster_id}
 
   - Effect: Allow
     Action:
@@ -98,3 +98,48 @@ Statement:
       - cloudformation:DescribeStackResources
       - cloudformation:GetTemplate
     Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/eks-workshop-*/*
+
+  - Effect: Allow
+    Action:
+      - aidevops:*
+    Resource:
+      - !Sub arn:aws:aidevops:us-east-1:${AWS::AccountId}:agentspace/*
+
+  - Effect: Allow
+    Action:
+      - iam:CreateRole
+      - iam:DeleteRole
+      - iam:GetRole
+      - iam:AttachRolePolicy
+      - iam:DetachRolePolicy
+      - iam:PutRolePolicy
+      - iam:DeleteRolePolicy
+      - iam:ListAttachedRolePolicies
+      - iam:ListRolePolicies
+      - iam:TagRole
+      - iam:ListInstanceProfilesForRole
+      - iam:GetRolePolicy
+      - iam:PassRole
+    Resource:
+      - !Sub arn:aws:iam::${AWS::AccountId}:role/DevOpsAgentRole-*
+
+  - Effect: Allow
+    Action:
+      - eks:CreateAccessEntry
+      - eks:DeleteAccessEntry
+      - eks:DescribeAccessEntry
+      - eks:ListAccessEntries
+      - eks:AssociateAccessPolicy
+      - eks:DisassociateAccessPolicy
+    Resource:
+      - !Sub arn:aws:eks:${AWS::Region}:${AWS::AccountId}:cluster/${EksClusterName}
+
+  - Effect: Allow
+    Action:
+      - ssm:SendCommand
+      - ssm:GetCommandInvocation
+    Resource:
+      - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:document/AWS-RunShellScript
+      - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:document/AWS-RunPowerShellScript
+      - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*
+      - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:*
