@@ -26,6 +26,7 @@ The preparation of the lab might take a couple of minutes and it will make the f
 - Configure an ingress resource
 - Set up initial AWS Load Balancer Controller configuration (with deliberate issues for troubleshooting)
 - Create necessary IAM roles and policies
+- Provision an AWS DevOps Agent space with EKS access and SSM configuration for AI-assisted troubleshooting
 
 :::
 

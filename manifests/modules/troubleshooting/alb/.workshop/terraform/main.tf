@@ -120,3 +120,13 @@ resource "null_resource" "kustomize_app" {
 
   depends_on = [aws_iam_role_policy_attachment.issue_policy_attachment]
 }
+
+# -----------------------------------------------------------------------------
+# DevOps Agent — automatically provisioned for this scenario
+# -----------------------------------------------------------------------------
+module "devops_agent" {
+  source         = "/eks-workshop/manifests/modules/troubleshooting/.devops-agent-shared"
+  eks_cluster_id = var.eks_cluster_id
+  addon_context  = var.addon_context
+  tags           = var.tags
+}
