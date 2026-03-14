@@ -107,6 +107,19 @@ Statement:
 
   - Effect: Allow
     Action:
+      - cloudformation:CreateResource
+      - cloudformation:DeleteResource
+      - cloudformation:GetResource
+      - cloudformation:GetResourceRequestStatus
+      - cloudformation:ListResources
+      - cloudformation:UpdateResource
+    Resource: "*"
+    Condition:
+      StringEquals:
+        aws:RequestedRegion: us-east-1
+
+  - Effect: Allow
+    Action:
       - iam:CreateRole
       - iam:DeleteRole
       - iam:GetRole
@@ -122,6 +135,27 @@ Statement:
       - iam:PassRole
     Resource:
       - !Sub arn:aws:iam::${AWS::AccountId}:role/DevOpsAgentRole-*
+      - !Sub arn:aws:iam::${AWS::AccountId}:role/${Env}-devops-agent-ssm-hybrid
+
+  - Effect: Allow
+    Action:
+      - ssm:CreateActivation
+      - ssm:DeleteActivation
+      - ssm:DescribeActivations
+      - ssm:DeregisterManagedInstance
+      - ssm:DescribeInstanceInformation
+      - ssm:AddTagsToResource
+      - ssm:ListTagsForResource
+    Resource: "*"
+
+  - Effect: Allow
+    Action:
+      - iam:PassRole
+    Resource:
+      - !Sub arn:aws:iam::${AWS::AccountId}:role/${Env}-devops-agent-ssm-hybrid
+    Condition:
+      StringEquals:
+        iam:PassedToService: ssm.amazonaws.com
 
   - Effect: Allow
     Action:
@@ -132,7 +166,7 @@ Statement:
       - eks:AssociateAccessPolicy
       - eks:DisassociateAccessPolicy
     Resource:
-      - !Sub arn:aws:eks:${AWS::Region}:${AWS::AccountId}:cluster/${EksClusterName}
+      - !Sub arn:aws:eks:${AWS::Region}:${AWS::AccountId}:cluster/${Env}
 
   - Effect: Allow
     Action:

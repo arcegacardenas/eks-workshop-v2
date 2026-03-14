@@ -84,3 +84,4 @@ Statement:
           - fis.amazonaws.com
           - transitgateway.amazonaws.com
           - fsx.amazonaws.com
+          - aidevops.amazonaws.com

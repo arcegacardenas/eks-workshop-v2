@@ -3,11 +3,14 @@ title: "EKS Access & SSM Configuration"
 sidebar_position: 22
 ---
 
-In this section, you'll verify that the DevOps Agent has the necessary access to your EKS cluster and that the SSM Agent is running on the Code Server instance for remote command execution.
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+In this section, you'll verify that the DevOps Agent has the necessary access to your EKS cluster and configure SSM so the agent can execute remediation commands on your environment.
 
 ## EKS Access Entry
 
-The Terraform provisioned an EKS access entry that grants the `DevOpsAgentRole-AgentSpace` role access to the Kubernetes API. This allows the DevOps Agent to describe cluster objects, retrieve pod logs, and read events.
+The `prepare-environment` script provisioned an EKS access entry that grants the `DevOpsAgentRole-AgentSpace` role access to the Kubernetes API. This allows the DevOps Agent to describe cluster objects, retrieve pod logs, and read events.
 
 Verify the access entry exists:
 
@@ -15,37 +18,88 @@ Verify the access entry exists:
 $ aws eks list-access-entries --cluster-name $EKS_CLUSTER_NAME --output json | jq '.accessEntries[] | select(contains("DevOpsAgentRole"))'
 ```
 
-You should see the ARN of the `DevOpsAgentRole-AgentSpace` role in the output, confirming the agent has cluster access.
+Verify the access policy grants cluster-admin level access:
 
-## Kubernetes API Access
-
-Confirm the agent role has the expected permissions on the cluster:
-
-```bash test=false
-$ kubectl auth can-i get pods --as-group=system:masters --all-namespaces
+```bash
+$ aws eks list-associated-access-policies --cluster-name $EKS_CLUSTER_NAME \
+  --principal-arn $(aws iam get-role --role-name DevOpsAgentRole-AgentSpace --query 'Role.Arn' --output text) \
+  --query 'associatedAccessPolicies[].policyArn' --output text
 ```
 
-This should return `yes`, indicating cluster-admin level access is available. The DevOps Agent uses this access to inspect pods, services, ingress resources, and events when diagnosing issues.
+You should see `arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy` in the output.
 
-## SSM Agent Verification
+## SSM Agent Configuration
 
-The DevOps Agent executes remediation commands on the Code Server instance via AWS Systems Manager (SSM). The SSM Agent must be running for this to work.
+The DevOps Agent executes remediation commands on your environment via AWS Systems Manager (SSM). The setup differs depending on whether you're running in the cloud (EC2) or locally (container).
 
-Check the SSM Agent status:
+<Tabs>
+<TabItem value="ec2" label="Cloud (EC2)" default>
+
+The EC2 instance running the Code Server IDE already has:
+- SSM Agent pre-installed (Amazon Linux 2023)
+- `AmazonSSMManagedInstanceCore` IAM policy attached
+- Instance tagged with `type: eksworkshop-ide`
+
+Verify the SSM Agent is running:
 
 ```bash test=false
 $ sudo systemctl status amazon-ssm-agent
 ```
 
-You should see `active (running)` in the output. If the SSM Agent is not running, start it:
+You should see `active (running)`. If not, start it:
 
 ```bash test=false
 $ sudo systemctl start amazon-ssm-agent
 ```
 
+Verify the instance is registered with SSM:
+
+```bash test=false
+$ aws ssm describe-instance-information --query 'InstanceInformationList[?PingStatus==`Online`].InstanceId' --output text
+```
+
+</TabItem>
+<TabItem value="container" label="Local (Container)">
+
+When running locally via `make shell` or `make ide`, the container doesn't have SSM Agent installed. You need to install it and register as a hybrid managed instance.
+
+The `prepare-environment` script created an SSM hybrid activation. The activation credentials are available as environment variables: `SSM_ACTIVATION_ID` and `SSM_ACTIVATION_CODE`.
+
+### Install SSM Agent
+
+```bash test=false
+$ sudo yum install -y amazon-ssm-agent
+```
+
+### Register as a hybrid managed instance
+
+```bash test=false
+$ sudo amazon-ssm-agent -register -code "${SSM_ACTIVATION_CODE}" -id "${SSM_ACTIVATION_ID}" -region "${AWS_REGION}"
+```
+
+### Start the SSM Agent
+
+```bash test=false
+$ nohup sudo amazon-ssm-agent > /dev/null 2>&1 &
+```
+
+### Verify registration
+
+```bash test=false
+$ aws ssm describe-instance-information \
+  --filters "Key=ActivationIds,Values=${SSM_ACTIVATION_ID}" \
+  --query 'InstanceInformationList[].{InstanceId:InstanceId,PingStatus:PingStatus}' \
+  --output table
+```
+
+You should see your managed instance with `PingStatus: Online`. The instance ID will start with `mi-` (managed instance) instead of `i-` (EC2 instance).
+
 :::info
-The Code Server instance already has the `AmazonSSMManagedInstanceCore` IAM policy attached and is tagged with `type: eksworkshop-ide`. The DevOps Agent's SSM permissions are scoped to instances with this tag, so no additional SSM configuration is needed on the instance side.
+The hybrid managed instance ID (`mi-*`) is what the DevOps Agent will use to send SSM commands to your container. The DevOps Agent's SSM permissions allow commands to both EC2 instances tagged with `type: eksworkshop-ide` and managed instances registered through this activation.
 :::
+
+</TabItem>
+</Tabs>
 
 ## Summary
 
@@ -54,6 +108,6 @@ At this point, the DevOps Agent setup is complete:
 - **Agent Space** is provisioned and associated with your EKS cluster
 - **IAM roles** grant the agent permissions for cluster access and SSM command execution
 - **EKS access entry** allows the agent to interact with the Kubernetes API
-- **SSM Agent** is running on the Code Server instance to receive remediation commands
+- **SSM Agent** is configured to receive remediation commands
 
 You can now use the DevOps Agent as an alternative troubleshooting approach in the scenario labs. Look for the **DevOps Agent** tab on troubleshooting fix pages.

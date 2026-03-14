@@ -1,17 +1,11 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = ">= 6.16.0"
-    }
-  }
-
-  backend "kubernetes" {
-    secret_suffix = "devops-agent-state"
-    config_path   = "~/.kube/config"
-    namespace     = "kube-system"
-  }
-}
+# -----------------------------------------------------------------------------
+# DevOps Agent Setup Module (Educational)
+#
+# This module patches the AWS CLI and cleans up any stale Agent Space
+# from previous runs so the learner can create a fresh one.
+# It also creates the IAM roles and EKS access entry needed for the
+# manual walkthrough.
+# -----------------------------------------------------------------------------
 
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
@@ -26,14 +20,50 @@ locals {
   endpoint_url     = "https://api.prod.cp.aidevops.us-east-1.api.aws"
 }
 
-provider "aws" {
-  alias  = "us_east_1"
-  region = "us-east-1"
+# Patch the AWS CLI with the DevOps Agent service model
+resource "null_resource" "patch_cli" {
+  triggers = {
+    always_run = timestamp()
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      curl -s -o /tmp/devopsagent.json https://d1co8nkiwcta1g.cloudfront.net/devopsagent.json
+      aws configure add-model --service-model "file:///tmp/devopsagent.json" --service-name devopsagent
+    EOT
+  }
+}
+
+# Clean up any stale Agent Space from previous runs
+resource "null_resource" "cleanup_stale_agent_space" {
+  triggers = {
+    always_run = timestamp()
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      SPACE_ID=$(aws devopsagent list-agent-spaces \
+        --endpoint-url "${local.endpoint_url}" \
+        --region us-east-1 \
+        --query "agentSpaces[?name=='${local.agent_space_name}'].agentSpaceId" \
+        --output text 2>/dev/null) || true
+
+      if [ -n "$SPACE_ID" ] && [ "$SPACE_ID" != "None" ]; then
+        echo "Deleting stale Agent Space: $SPACE_ID"
+        aws devopsagent delete-agent-space \
+          --agent-space-id "$SPACE_ID" \
+          --endpoint-url "${local.endpoint_url}" \
+          --region us-east-1 2>/dev/null || true
+      fi
+    EOT
+  }
+
+  depends_on = [null_resource.patch_cli]
 }
 
 # -----------------------------------------------------------------------------
 # IAM Role: DevOpsAgentRole-AgentSpace
-# Used by the DevOps Agent service for EKS cluster access and SSM commands
+# Created here so the learner can reference it during the manual walkthrough
 # -----------------------------------------------------------------------------
 resource "aws_iam_role" "agent_space_role" {
   name = "DevOpsAgentRole-AgentSpace"
@@ -41,70 +71,21 @@ resource "aws_iam_role" "agent_space_role" {
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "aidevops.amazonaws.com"
-        }
-        Action = "sts:AssumeRole"
-        Condition = {
-          StringEquals = {
-            "aws:SourceAccount" = local.account_id
-          }
-          ArnLike = {
-            "aws:SourceArn" = "arn:aws:aidevops:us-east-1:${local.account_id}:agent-space/*"
-          }
-        }
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "aidevops.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+      Condition = {
+        StringEquals = { "aws:SourceAccount" = local.account_id }
+        ArnLike      = { "aws:SourceArn" = "arn:aws:aidevops:us-east-1:${local.account_id}:agentspace/*" }
       }
-    ]
+    }]
   })
 }
 
-resource "aws_iam_role_policy_attachment" "agent_space_managed_policy" {
+resource "aws_iam_role_policy_attachment" "agent_space_managed" {
   role       = aws_iam_role.agent_space_role.name
   policy_arn = "arn:aws:iam::aws:policy/AIOpsAssistantPolicy"
-}
-
-resource "aws_iam_role_policy" "agent_space_ssm" {
-  name = "DevOpsAgentSSMPolicy"
-  role = aws_iam_role.agent_space_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "ssm:SendCommand",
-          "ssm:GetCommandInvocation"
-        ]
-        Resource = [
-          "arn:aws:ssm:${data.aws_region.current.name}:${local.account_id}:document/AWS-RunShellScript",
-          "arn:aws:ssm:${data.aws_region.current.name}:${local.account_id}:document/AWS-RunPowerShellScript"
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "ssm:SendCommand"
-        ]
-        Resource = "arn:aws:ec2:${data.aws_region.current.name}:${local.account_id}:instance/*"
-        Condition = {
-          StringEquals = {
-            "ssm:resourceTag/type" = "eksworkshop-ide"
-          }
-        }
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "ssm:GetCommandInvocation"
-        ]
-        Resource = "arn:aws:ssm:${data.aws_region.current.name}:${local.account_id}:*"
-      }
-    ]
-  })
 }
 
 resource "aws_iam_role_policy" "agent_space_expanded" {
@@ -115,15 +96,28 @@ resource "aws_iam_role_policy" "agent_space_expanded" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = [
-          "aidevops:GetKnowledgeItem",
-          "aidevops:ListKnowledgeItems",
-          "eks:AccessKubernetesApi",
-          "eks:DescribeCluster",
-          "eks:ListClusters"
-        ]
+        Sid      = "EKSAndAIDevOps"
+        Effect   = "Allow"
+        Action   = ["aidevops:GetKnowledgeItem", "aidevops:ListKnowledgeItems", "eks:AccessKubernetesApi", "eks:DescribeCluster", "eks:ListClusters"]
         Resource = "*"
+      },
+      {
+        Sid      = "SSMDocuments"
+        Effect   = "Allow"
+        Action   = ["ssm:SendCommand", "ssm:GetCommandInvocation"]
+        Resource = ["arn:aws:ssm:${data.aws_region.current.name}:${local.account_id}:document/AWS-RunShellScript", "arn:aws:ssm:${data.aws_region.current.name}:${local.account_id}:document/AWS-RunPowerShellScript"]
+      },
+      {
+        Sid      = "SSMInstances"
+        Effect   = "Allow"
+        Action   = "ssm:SendCommand"
+        Resource = ["arn:aws:ec2:${data.aws_region.current.name}:${local.account_id}:instance/*", "arn:aws:ssm:${data.aws_region.current.name}:${local.account_id}:managed-instance/*"]
+      },
+      {
+        Sid      = "SSMGetInvocation"
+        Effect   = "Allow"
+        Action   = "ssm:GetCommandInvocation"
+        Resource = "arn:aws:ssm:${data.aws_region.current.name}:${local.account_id}:*"
       }
     ]
   })
@@ -131,7 +125,6 @@ resource "aws_iam_role_policy" "agent_space_expanded" {
 
 # -----------------------------------------------------------------------------
 # IAM Role: DevOpsAgentRole-WebappAdmin
-# Used for the operator interface to interact with the DevOps Agent
 # -----------------------------------------------------------------------------
 resource "aws_iam_role" "webapp_admin_role" {
   name = "DevOpsAgentRole-WebappAdmin"
@@ -139,53 +132,53 @@ resource "aws_iam_role" "webapp_admin_role" {
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "aidevops.amazonaws.com"
-        }
-        Action = "sts:AssumeRole"
-        Condition = {
-          StringEquals = {
-            "aws:SourceAccount" = local.account_id
-          }
-          ArnLike = {
-            "aws:SourceArn" = "arn:aws:aidevops:us-east-1:${local.account_id}:agent-space/*"
-          }
-        }
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "aidevops.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+      Condition = {
+        StringEquals = { "aws:SourceAccount" = local.account_id }
+        ArnLike      = { "aws:SourceArn" = "arn:aws:aidevops:us-east-1:${local.account_id}:agentspace/*" }
       }
-    ]
+    }]
   })
 }
 
 resource "aws_iam_role_policy" "webapp_admin_permissions" {
-  name = "DevOpsAgentWebappAdminPolicy"
+  name = "AIDevOpsBasicOperatorActionsPolicy"
   role = aws_iam_role.webapp_admin_role.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
+        Sid    = "OperatorActions"
         Effect = "Allow"
         Action = [
-          "aidevops:GetAgentSpace",
-          "aidevops:InvokeAgent",
-          "aidevops:CreateChat",
-          "aidevops:StreamMessage",
-          "aidevops:ListChats",
-          "aidevops:GetChat",
-          "aidevops:DeleteChat"
+          "aidevops:GetAgentSpace", "aidevops:GetAssociation", "aidevops:ListAssociations",
+          "aidevops:CreateBacklogTask", "aidevops:GetBacklogTask", "aidevops:UpdateBacklogTask",
+          "aidevops:ListBacklogTasks", "aidevops:ListChildExecutions", "aidevops:ListJournalRecords",
+          "aidevops:DiscoverTopology", "aidevops:InvokeAgent", "aidevops:ListGoals",
+          "aidevops:ListRecommendations", "aidevops:ListExecutions", "aidevops:GetRecommendation",
+          "aidevops:UpdateRecommendation", "aidevops:CreateKnowledgeItem", "aidevops:ListKnowledgeItems",
+          "aidevops:GetKnowledgeItem", "aidevops:UpdateKnowledgeItem", "aidevops:ListPendingMessages",
+          "aidevops:InitiateChatForCase", "aidevops:EndChatForCase", "aidevops:DescribeSupportLevel",
+          "aidevops:ListChats", "aidevops:CreateChat", "aidevops:StreamMessage"
         ]
-        Resource = "arn:aws:aidevops:us-east-1:${local.account_id}:agent-space/*"
+        Resource = "arn:aws:aidevops:us-east-1:${local.account_id}:agentspace/*"
+      },
+      {
+        Sid      = "SupportActions"
+        Effect   = "Allow"
+        Action   = ["support:DescribeCases", "support:InitiateChatForCase", "support:DescribeSupportLevel"]
+        Resource = "*"
       }
     ]
   })
 }
 
 # -----------------------------------------------------------------------------
-# EKS Access Entry for DevOps Agent
-# Grants the AgentSpace role access to the EKS cluster Kubernetes API
+# EKS Access Entry
 # -----------------------------------------------------------------------------
 resource "aws_eks_access_entry" "devops_agent" {
   cluster_name  = var.eks_cluster_id
@@ -205,80 +198,32 @@ resource "aws_eks_access_policy_association" "devops_agent" {
 }
 
 # -----------------------------------------------------------------------------
-# DevOps Agent API calls via null_resource + local-exec
-# No native Terraform provider exists yet for DevOps Agent
+# SSM Hybrid Activation (for local container testing)
 # -----------------------------------------------------------------------------
-resource "null_resource" "create_agent_space" {
-  triggers = {
-    agent_space_name = local.agent_space_name
-    account_id       = local.account_id
-  }
+resource "aws_iam_role" "ssm_hybrid" {
+  name = "${var.eks_cluster_id}-devops-agent-ssm-hybrid"
+  tags = local.tags
 
-  provisioner "local-exec" {
-    command = <<-EOT
-      aws devopsagent create-agent-space \
-        --agent-space-name "${local.agent_space_name}" \
-        --endpoint-url "${local.endpoint_url}" \
-        --region us-east-1 || true
-    EOT
-  }
-
-  provisioner "local-exec" {
-    when    = destroy
-    command = <<-EOT
-      aws devopsagent delete-agent-space \
-        --agent-space-name "${self.triggers.agent_space_name}" \
-        --endpoint-url "https://api.prod.cp.aidevops.us-east-1.api.aws" \
-        --region us-east-1 || true
-    EOT
-  }
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "ssm.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
 }
 
-resource "null_resource" "associate_service" {
-  triggers = {
-    agent_space_name = local.agent_space_name
-    cluster_name     = var.eks_cluster_id
-    agent_role_arn   = aws_iam_role.agent_space_role.arn
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      aws devopsagent associate-service \
-        --agent-space-name "${local.agent_space_name}" \
-        --service-type EKS \
-        --service-identifier "${var.eks_cluster_id}" \
-        --monitoring-role-arn "${aws_iam_role.agent_space_role.arn}" \
-        --endpoint-url "${local.endpoint_url}" \
-        --region us-east-1 || true
-    EOT
-  }
-
-  depends_on = [
-    null_resource.create_agent_space,
-    aws_iam_role.agent_space_role,
-    aws_eks_access_entry.devops_agent,
-    aws_eks_access_policy_association.devops_agent
-  ]
+resource "aws_iam_role_policy_attachment" "ssm_hybrid_managed" {
+  role       = aws_iam_role.ssm_hybrid.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-resource "null_resource" "enable_operator_app" {
-  triggers = {
-    agent_space_name   = local.agent_space_name
-    webapp_role_arn    = aws_iam_role.webapp_admin_role.arn
-  }
+resource "aws_ssm_activation" "hybrid" {
+  name               = "${var.eks_cluster_id}-devops-agent-hybrid"
+  description        = "SSM activation for DevOps Agent local container"
+  iam_role           = aws_iam_role.ssm_hybrid.id
+  registration_limit = 5
 
-  provisioner "local-exec" {
-    command = <<-EOT
-      aws devopsagent enable-operator-app \
-        --agent-space-name "${local.agent_space_name}" \
-        --operator-role-arn "${aws_iam_role.webapp_admin_role.arn}" \
-        --endpoint-url "${local.endpoint_url}" \
-        --region us-east-1 || true
-    EOT
-  }
-
-  depends_on = [
-    null_resource.create_agent_space,
-    aws_iam_role.webapp_admin_role
-  ]
+  depends_on = [aws_iam_role_policy_attachment.ssm_hybrid_managed]
 }

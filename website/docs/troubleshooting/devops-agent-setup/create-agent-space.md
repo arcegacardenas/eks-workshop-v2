@@ -3,11 +3,21 @@ title: "Create Agent Space"
 sidebar_position: 21
 ---
 
-The `prepare-environment` script has already provisioned the Agent Space and IAM roles using Terraform. In this section, you'll patch the AWS CLI with the DevOps Agent service model and verify the resources were created correctly.
+In this section, you'll create an AWS DevOps Agent Space, associate your AWS account, and enable the operator app. The `prepare-environment` script already provisioned the IAM roles, EKS access entry, and SSM activation — you'll use those to configure the Agent Space.
+
+:::info
+In the troubleshooting scenario labs (ALB, DNS, etc.), all of these steps are automated by `prepare-environment`. This walkthrough teaches you the manual steps so you understand what's being provisioned.
+:::
 
 ## Step 1: Patch the AWS CLI
 
-The AWS DevOps Agent is not yet included in the standard AWS CLI. Download the service model and register it:
+The AWS DevOps Agent is in preview and not yet included in the standard AWS CLI. The `prepare-environment` script already patched it, but let's verify:
+
+```bash test=false
+$ aws devopsagent help
+```
+
+You should see the DevOps Agent CLI help output. If you get `Found invalid choice 'devopsagent'`, run:
 
 ```bash
 $ curl -o /tmp/devopsagent.json https://d1co8nkiwcta1g.cloudfront.net/devopsagent.json
@@ -17,80 +27,68 @@ $ curl -o /tmp/devopsagent.json https://d1co8nkiwcta1g.cloudfront.net/devopsagen
 $ aws configure add-model --service-model "file:///tmp/devopsagent.json" --service-name devopsagent
 ```
 
-## Step 2: Verify the CLI patch
+## Step 2: Create the Agent Space
 
-Confirm the `devopsagent` subcommand is available:
+Create the Agent Space — this is the primary container for your DevOps Agent configuration:
 
 ```bash test=false
-$ aws devopsagent help
+$ aws devopsagent create-agent-space --name "${DEVOPS_AGENT_SPACE_NAME}" --description "EKS Workshop DevOps Agent for troubleshooting" --endpoint-url "${DEVOPS_AGENT_ENDPOINT}" --region us-east-1
 ```
 
-You should see the DevOps Agent CLI help output listing available commands such as `create-agent-space`, `list-agent-spaces`, and `associate-service`.
+Save the agent space ID:
 
-## Step 3: Review the Agent Space
-
-The Agent Space was created by the `prepare-environment` Terraform. Verify it exists:
-
-```bash hook=setup
-$ aws devopsagent list-agent-spaces \
-  --endpoint-url "https://api.prod.cp.aidevops.us-east-1.api.aws" \
-  --region us-east-1
+```bash test=false
+$ export DEVOPS_AGENT_SPACE_ID=$(aws devopsagent list-agent-spaces --endpoint-url "${DEVOPS_AGENT_ENDPOINT}" --region us-east-1 --query "agentSpaces[?name=='${DEVOPS_AGENT_SPACE_NAME}'].agentSpaceId" --output text)
 ```
 
-You should see an agent space named `${EKS_CLUSTER_NAME}-devops-agent` in the output.
+```bash test=false
+$ echo "Agent Space ID: ${DEVOPS_AGENT_SPACE_ID}"
+```
 
-## Step 4: Review IAM Roles
+## Step 3: Associate your AWS Account
 
-Two IAM roles were created by Terraform for the DevOps Agent:
+Associate your AWS account with the Agent Space so the DevOps Agent can monitor your EKS cluster:
 
-**AgentSpace role** — used by the DevOps Agent service for EKS cluster access and SSM command execution:
+```bash test=false
+$ echo '{"aws":{"assumableRoleArn":"'${DEVOPS_AGENT_ROLE_ARN}'","accountId":"'${AWS_ACCOUNT_ID}'","accountType":"monitor","resources":[]}}' > /tmp/devops-agent-aws-config.json
+```
+
+```bash test=false
+$ aws devopsagent associate-service --agent-space-id "${DEVOPS_AGENT_SPACE_ID}" --service-id aws --configuration file:///tmp/devops-agent-aws-config.json --endpoint-url "${DEVOPS_AGENT_ENDPOINT}" --region us-east-1
+```
+
+## Step 4: Enable the Operator App
+
+Enable the web-based operator interface for interactive troubleshooting:
+
+```bash test=false
+$ aws devopsagent enable-operator-app --agent-space-id "${DEVOPS_AGENT_SPACE_ID}" --auth-flow iam --operator-app-role-arn "${DEVOPS_AGENT_WEBAPP_ROLE_ARN}" --endpoint-url "${DEVOPS_AGENT_ENDPOINT}" --region us-east-1
+```
+
+## Step 5: Verify and Access
+
+Verify the Agent Space was created:
+
+```bash test=false
+$ aws devopsagent list-agent-spaces --endpoint-url "${DEVOPS_AGENT_ENDPOINT}" --region us-east-1
+```
+
+Review the IAM roles provisioned by `prepare-environment`:
 
 ```bash
-$ aws iam get-role --role-name DevOpsAgentRole-AgentSpace --query 'Role.Arn' --output text
+$ aws iam get-role --role-name DevOpsAgentRole-AgentSpace --query 'Role.{Name:RoleName,Arn:Arn}' --output table
 ```
-
-**WebappAdmin role** — used for the operator app web interface:
 
 ```bash
-$ aws iam get-role --role-name DevOpsAgentRole-WebappAdmin --query 'Role.Arn' --output text
+$ aws iam get-role --role-name DevOpsAgentRole-WebappAdmin --query 'Role.{Name:RoleName,Arn:Arn}' --output table
 ```
 
-Both roles have trust policies for the `aidevops.amazonaws.com` service principal, scoped to your account.
-
-## Step 5: Review Account Association
-
-The Terraform also associated your AWS account's EKS cluster with the Agent Space using `associate-service`. This allows the DevOps Agent to monitor and interact with your cluster.
+Access the operator app:
 
 ```bash test=false
-$ aws devopsagent list-service-associations \
-  --agent-space-name "${DEVOPS_AGENT_SPACE_NAME}" \
-  --endpoint-url "https://api.prod.cp.aidevops.us-east-1.api.aws" \
-  --region us-east-1
+$ echo "https://${DEVOPS_AGENT_SPACE_ID}.aidevops.global.app.aws/dashboard"
 ```
-
-You should see an association with `serviceType: EKS` and your cluster name as the `serviceIdentifier`.
-
-## Step 6: Review Operator App
-
-The operator app was enabled during provisioning, giving you a web-based interface to interact with the DevOps Agent:
-
-```bash test=false
-$ aws devopsagent get-operator-app \
-  --agent-space-name "${DEVOPS_AGENT_SPACE_NAME}" \
-  --endpoint-url "https://api.prod.cp.aidevops.us-east-1.api.aws" \
-  --region us-east-1
-```
-
-## Step 7: Access the Operator App
-
-You can access the DevOps Agent operator app web interface at:
-
-```text
-https://us-east-1.console.aws.amazon.com/devopsagent/home?region=us-east-1#/agent-spaces
-```
-
-From there, select your agent space (`${EKS_CLUSTER_NAME}-devops-agent`) to start interactive troubleshooting sessions through the browser.
 
 :::info
-The operator app provides a chat-based interface where you can describe issues in natural language. The DevOps Agent will diagnose the problem by inspecting your EKS cluster and suggest or execute remediation steps.
+The operator app provides a chat-based interface where you can describe issues in natural language. The DevOps Agent will diagnose the problem by inspecting your EKS cluster and suggest or execute remediation steps via SSM on your Code Server instance.
 :::

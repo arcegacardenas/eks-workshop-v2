@@ -4,3 +4,4 @@ Statement:
     Action: ssm:CreateActivation
     Resource:
       - !Sub arn:aws:iam::${AWS::AccountId}:role/${Env}-hybrid-node-role-*
+      - !Sub arn:aws:iam::${AWS::AccountId}:role/${Env}-devops-agent-ssm-hybrid
