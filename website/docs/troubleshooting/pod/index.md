@@ -23,7 +23,7 @@ You can view the Terraform that applies these changes [here](https://github.com/
 The preparation of the lab might take a couple of minutes and it will make the following changes to your lab environment:
 
 - Create a ECR repo named retail-sample-app-ui.
-- Create a EC2 instance and push retail store sample app image in to the ECR repo from the instance using tag 0.4.0
+- Create a EC2 instance and push retail store sample app image in to the ECR repo from the instance using tag 1.2.1
 - Create a new deployment named ui-private in default namespace.
 - Create a new deployment named ui-new in default namespace
 - Install aws-efs-csi-driver addon in the EKS cluster.

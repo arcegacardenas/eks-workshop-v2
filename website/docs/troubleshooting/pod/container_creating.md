@@ -88,6 +88,10 @@ $ aws ec2 describe-security-groups --group-ids $SG --query "SecurityGroups[].IpP
 ]
 ```
 
+:::info
+Your output may include additional entries such as `UserIdGroupPairs` for EFA traffic. This does not affect the analysis.
+:::
+
 The egress rules have no limitations. IpProtocol -1 indicates all protocols and the CidrIp indicates the destination as 0.0.0.0/0. So the communication from the worker node is not restricted and should be able to reach the EFS mount target.
 
 :::info

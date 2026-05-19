@@ -76,7 +76,7 @@ Before we update the deployment, let's verify if this image exists using above m
 
 ![RepoExist](/docs/troubleshooting/pod/repo-found.webp)
 
-#### 5.1. Update image in the deployment with correct reference
+#### 5.2. Update image in the deployment with correct reference
 
 ```bash
 $ kubectl patch deployment ui-new --patch '{"spec": {"template": {"spec": {"containers": [{"name": "ui", "image": "public.ecr.aws/aws-containers/retail-store-sample-ui:1.2.1"}]}}}}'

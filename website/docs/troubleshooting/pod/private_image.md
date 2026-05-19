@@ -47,6 +47,10 @@ Events:
   Normal   BackOff    4s (x21 over 5m14s)    kubelet            Back-off pulling image "1234567890.dkr.ecr.us-west-2.amazonaws.com/retail-sample-app-ui:1.2.1"
 ```
 
+:::info
+The account ID shown in the examples below (1234567890) is a placeholder. Your output will display your actual AWS account ID.
+:::
+
 From the events of the pod, we can see the 'Failed to pull image' warning, with cause as 403 Forbidden. This indicates that the kubelet faced access denied while trying to pull the image used in the deployment. Let's get the URI of the image used in the deployment.
 
 ```bash
@@ -105,22 +109,18 @@ $ aws iam list-attached-role-policies --role-name $ROLE_NAME
             "PolicyArn": "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
         },
         {
-            "PolicyName": "AmazonEC2ContainerRegistryReadOnly",
-            "PolicyArn": "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+            "PolicyName": "AmazonEC2ContainerRegistryPullOnly",
+            "PolicyArn": "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly"
         },
         {
             "PolicyName": "AmazonEKSWorkerNodePolicy",
             "PolicyArn": "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-        },
-        {
-            "PolicyName": "AmazonSSMPatchAssociation",
-            "PolicyArn": "arn:aws:iam::aws:policy/AmazonSSMPatchAssociation"
         }
     ]
 }
 ```
 
-The AWS managed policy "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly" is attached to the worker node role and this policy should provide enough permissions to pull a Image from ECR private repository.
+The AWS managed policy "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly" is attached to the worker node role and this policy should provide enough permissions to pull a Image from ECR private repository.
 
 ### Step 5: Check ECR repo permissions
 
