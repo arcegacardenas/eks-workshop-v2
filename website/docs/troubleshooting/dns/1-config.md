@@ -50,28 +50,27 @@ Events:
   Normal   Started    3m16s (x3 over 3m46s)  kubelet            Started container catalog
   Warning  Unhealthy  3m12s (x9 over 3m46s)  kubelet            Readiness probe failed: Get "http://10.42.115.209:8080/health": dial tcp 10.42.115.209:8080: connect: connection refused
   Warning  BackOff    2m55s (x5 over 3m34s)  kubelet            Back-off restarting failed container catalog in pod catalog-5578f9649b-bbrjp_catalog(b5c1c1fa-5db6-4be4-8dcd-0910410f5630)
-  Normal   Pulled     2m44s (x4 over 3m46s)  kubelet            Container image "public.ecr.aws/aws-containers/retail-store-sample-catalog:0.4.0" already present on machine
+  Normal   Pulled     2m44s (x4 over 3m46s)  kubelet            Container image "public.ecr.aws/aws-containers/retail-store-sample-catalog:1.2.1" already present on machine
   Normal   Created    2m44s (x4 over 3m46s)  kubelet            Created container catalog
 ```
 
 The events show that while the container starts, the application fails to run properly. Failed readiness probes trigger container restarts.
 
-#### 3.1. Check application logs
+#### 3.2. Check application logs
 
 Check the application logs to understand why the application isn't running:
 
 ```bash timeout=30 expectError=true
 $ kubectl logs -l app.kubernetes.io/name=catalog -l app.kubernetes.io/component=service -n catalog
-2024/10/20 15:19:27 Running database migration...
-2024/10/20 15:19:27 Schema migration applied
-2024/10/20 15:19:27 Connecting to catalog-mysql:3306/catalog?timeout=5s
-2024/10/20 15:19:27 invalid connection config: missing required peer IP or hostname
-2024/10/20 15:19:27 Connected
-2024/10/20 15:19:27 Connecting to catalog-mysql:3306/catalog?timeout=5s
-2024/10/20 15:19:27 invalid connection config: missing required peer IP or hostname
-2024/10/20 15:19:32 Error: Unable to connect to reader database dial tcp: lookup catalog-mysql: i/o timeout
-2024/10/20 15:19:32 dial tcp: lookup catalog-mysql: i/o timeout
+Using mysql database catalog-mysql:3306
+2024/10/20 15:19:27 /appsrc/repository/repository.go:32
+[error] failed to initialize database, got error dial tcp: lookup catalog-mysql: i/o timeout
+panic: failed to connect database
 ```
+
+:::info
+Your log output format may vary depending on the application version, but the key indicator is the `dial tcp: lookup catalog-mysql: i/o timeout` message, which confirms a DNS resolution failure.
+:::
 
 The logs reveal that the application fails to connect to the database due to DNS resolution timeout when trying to resolve the MySQL database service name (catalog-mysql).
 

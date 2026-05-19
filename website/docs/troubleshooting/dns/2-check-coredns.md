@@ -12,8 +12,8 @@ First, check CoreDNS pods in the kube-system namespace:
 ```bash timeout=30
 $ kubectl get pod -l k8s-app=kube-dns -n kube-system
 NAME                       READY   STATUS    RESTARTS   AGE
-CoreDNS-6fdb8f5699-dq7xw   0/1     Pending   0          42s
-CoreDNS-6fdb8f5699-z57jw   0/1     Pending   0          42s
+coredns-6fdb8f5699-dq7xw   0/1     Pending   0          42s
+coredns-6fdb8f5699-z57jw   0/1     Pending   0          42s
 ```
 
 We can see that CoreDNS pods are not running which clearly explains the DNS resolution issues in the cluster.
@@ -127,8 +127,8 @@ Then verify that CoreDNS pods are now running:
 ```bash timeout=30
 $ kubectl get pod -l k8s-app=kube-dns -n kube-system
 NAME                       READY   STATUS    RESTARTS   AGE
-CoreDNS-7f6dd6865f-7qcjr   1/1     Running   0          100s
-CoreDNS-7f6dd6865f-kxw2x   1/1     Running   0          100s
+coredns-7f6dd6865f-7qcjr   1/1     Running   0          100s
+coredns-7f6dd6865f-kxw2x   1/1     Running   0          100s
 ```
 
 Finally, check CoreDNS logs to ensure the application is running without errors:
@@ -144,6 +144,10 @@ linux/amd64, go1.21.5, e9c721d80
 CoreDNS-1.11.1
 linux/amd64, go1.21.5, e9c721d80
 ```
+
+:::info
+The CoreDNS version shown in your logs may differ depending on the EKS cluster version. What matters is that the logs show no errors.
+:::
 
 The logs show no errors, indicating that CoreDNS is now processing DNS requests correctly.
 
