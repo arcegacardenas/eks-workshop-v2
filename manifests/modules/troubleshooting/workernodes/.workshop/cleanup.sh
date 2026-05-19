@@ -89,6 +89,14 @@ cleanup_namespace_resources() {
 # Start AWS operations in parallel
 logmessage "Starting parallel AWS resource cleanup..."
 
+# Delete nodegroups 1 and 2 (they share the default nodegroup's IAM role)
+for ng in new_nodegroup_1 new_nodegroup_2; do
+  if aws eks describe-nodegroup --cluster-name $EKS_CLUSTER_NAME --nodegroup-name $ng >/dev/null 2>&1; then
+    logmessage "Deleting nodegroup $ng..."
+    aws eks delete-nodegroup --cluster-name $EKS_CLUSTER_NAME --nodegroup-name $ng &
+  fi
+done
+
 # Get instance IDs and start termination if any exist
 INSTANCE_IDS=$(aws ec2 describe-instances \
     --filters "Name=tag:eks:nodegroup-name,Values=new_nodegroup_3" \
@@ -135,6 +143,22 @@ fi
 # Delete launch template
 logmessage "Deleting launch template..."
 aws ec2 delete-launch-template --launch-template-name new_nodegroup_3 2>/dev/null || true
+aws ec2 delete-launch-template --launch-template-name new_nodegroup_1 2>/dev/null || true
+aws ec2 delete-launch-template --launch-template-name new_nodegroup_2 2>/dev/null || true
+
+# Wait for nodegroups 1 and 2 deletion
+for ng in new_nodegroup_1 new_nodegroup_2; do
+  timeout=180
+  while [ $timeout -gt 0 ]; do
+    if ! aws eks describe-nodegroup --cluster-name $EKS_CLUSTER_NAME --nodegroup-name $ng >/dev/null 2>&1; then
+      logmessage "Nodegroup $ng deleted."
+      break
+    fi
+    logmessage "Waiting for $ng deletion... (${timeout}s remaining)"
+    sleep 10
+    timeout=$((timeout - 10))
+  done
+done
 
 # Delete IAM role and policies
 logmessage "Cleaning up IAM resources..."
