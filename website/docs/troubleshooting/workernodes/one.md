@@ -330,7 +330,7 @@ ACTIVE
 $ kubectl wait --for=condition=ready nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_1
 $ kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_1
 NAME                                          STATUS   ROLES    AGE    VERSION
-ip-10-42-108-252.us-west-2.compute.internal   Ready    <none>   3m9s   v1.30.0-eks-036c24b
+ip-10-42-108-252.us-west-2.compute.internal   Ready    <none>   3m9s   v1.xx.x-eks-xxxxxxx
 ```
 
 :::info

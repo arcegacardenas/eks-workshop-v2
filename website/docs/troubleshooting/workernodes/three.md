@@ -19,7 +19,7 @@ Let's first verify the node's status to confirm the current state:
 ```bash timeout=40 hook=fix-3-1 hookTimeout=60 wait=30
 $ kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_3
 NAME                                          STATUS     ROLES    AGE     VERSION
-ip-10-42-180-244.us-west-2.compute.internal   NotReady   <none>   15m     v1.27.1-eks-2f008fe
+ip-10-42-180-244.us-west-2.compute.internal   NotReady   <none>   15m     v1.xx.x-eks-xxxxxxx
 ```
 
 ### Step 2: Export Node Name
@@ -44,47 +44,26 @@ Let's examine the node's describe output to understand the cause of the _NotRead
 
 ```bash
 $ kubectl describe node $NODE_NAME | sed -n '/^Taints:/,/^[A-Z]/p;/^Conditions:/,/^[A-Z]/p;/^Events:/,$p'
-
-
-Taints:             node.kubernetes.io/unreachable:NoExecute
-                    node.kubernetes.io/unreachable:NoSchedule
-Unschedulable:      false
-Conditions:
-  Type             Status    LastHeartbeatTime                 LastTransitionTime                Reason              Message
-  ----             ------    -----------------                 ------------------                ------              -------
-  MemoryPressure   Unknown   Wed, 12 Feb 2025 15:20:21 +0000   Wed, 12 Feb 2025 15:21:04 +0000   NodeStatusUnknown   Kubelet stopped posting node status.
-  DiskPressure     Unknown   Wed, 12 Feb 2025 15:20:21 +0000   Wed, 12 Feb 2025 15:21:04 +0000   NodeStatusUnknown   Kubelet stopped posting node status.
-  PIDPressure      Unknown   Wed, 12 Feb 2025 15:20:21 +0000   Wed, 12 Feb 2025 15:21:04 +0000   NodeStatusUnknown   Kubelet stopped posting node status.
-  Ready            Unknown   Wed, 12 Feb 2025 15:20:21 +0000   Wed, 12 Feb 2025 15:21:04 +0000   NodeStatusUnknown   Kubelet stopped posting node status.
-Addresses:
-Events:
-  Type     Reason                   Age                    From                     Message
-  ----     ------                   ----                   ----                     -------
-  Normal   Starting                 3m18s                  kube-proxy
-  Normal   Starting                 3m31s                  kubelet                  Starting kubelet.
-  Warning  InvalidDiskCapacity      3m31s                  kubelet                  invalid capacity 0 on image filesystem
-  Normal   NodeHasSufficientMemory  3m31s (x2 over 3m31s)  kubelet                  Node ip-10-42-180-244.us-west-2.compute.internal status is now: NodeHasSufficientMemory
-  Normal   NodeHasNoDiskPressure    3m31s (x2 over 3m31s)  kubelet                  Node ip-10-42-180-244.us-west-2.compute.internal status is now: NodeHasNoDiskPressure
-  Normal   NodeHasSufficientPID     3m31s (x2 over 3m31s)  kubelet                  Node ip-10-42-180-244.us-west-2.compute.internal status is now: NodeHasSufficientPID
-  Normal   NodeAllocatableEnforced  3m31s                  kubelet                  Updated Node Allocatable limit across pods
-  Normal   RegisteredNode           3m27s                  node-controller          Node ip-10-42-180-244.us-west-2.compute.internal event: Registered Node ip-10-42-180-244.us-west-2.compute.internal in Controller
-  Normal   Synced                   3m27s                  cloud-node-controller    Node synced successfully
-  Normal   ControllerVersionNotice  3m12s                  vpc-resource-controller  The node is managed by VPC resource controller version v1.6.3
-  Normal   NodeReady                3m10s                  kubelet                  Node ip-10-42-180-244.us-west-2.compute.internal status is now: NodeReady
-  Normal   NodeTrunkInitiated       3m8s                   vpc-resource-controller  The node has trunk interface initialized successfully
-  Warning  SystemOOM                94s                    kubelet                  System OOM encountered, victim process: python, pid: 4763
-  Normal   NodeNotReady             52s                    node-controller          Node ip-10-42-180-244.us-west-2.compute.internal status is now: NodeNotReady
 ```
 
-Here we see that the Node's kubelet is in the _Unknown_ state and cannot be reached. You can read more about this status from the [Kubernetes documentation](https://kubernetes.io/docs/reference/node/node-status/#condition).
+The output will show the node in a degraded state. Look for indicators such as:
+
+- **Taints:** `node.kubernetes.io/unreachable` or `node.kubernetes.io/not-ready` with `NoExecute` and `NoSchedule` effects
+- **Conditions:** `MemoryPressure: True`, `Ready: False` or `Ready: Unknown`, with reasons like `KubeletNotReady`, `NodeStatusUnknown`, or "PLEG is not healthy"
+- **Events:** `SystemOOM`, `EvictionThresholdMet`, `NodeHasInsufficientMemory`, or `NodeNotReady`
+
+The specific output depends on how quickly the node's resources are exhausted and the Kubernetes version. The common thread is resource exhaustion causing the node to become unresponsive.
+
+Here we see that the Node's kubelet is in a degraded state and cannot function properly. You can read more about this status from the [Kubernetes documentation](https://kubernetes.io/docs/reference/node/node-status/#condition).
 
 :::note Node Status Information
-The node has the following taints:
+The node may have the following taints:
 
 - **node.kubernetes.io/unreachable:NoExecute**: Indicates pods will be evicted if they don't tolerate this taint
 - **node.kubernetes.io/unreachable:NoSchedule**: Prevents new pods from being scheduled
+- **node.kubernetes.io/not-ready:NoSchedule**: Prevents new pods from being scheduled on a not-ready node
 
-The node conditions show that the kubelet has stopped posting status updates, which can typically indicate severe resource constraints or system instability.
+The node conditions show that the kubelet has stopped functioning normally, which typically indicates severe resource constraints or system instability.
 :::
 
 ### Step 5: CloudWatch Metrics Investigation
@@ -180,7 +159,7 @@ This can take up to a little over 1 minute. The script will store the new node n
 ```bash test=false
 $ kubectl get nodes --selector=kubernetes.io/hostname=$NODE_NAME_2
 NAME                                          STATUS   ROLES    AGE     VERSION
-ip-10-42-180-24.us-west-2.compute.internal    Ready    <none>   0h43m   v1.30.8-eks-aeac579
+ip-10-42-180-24.us-west-2.compute.internal    Ready    <none>   0h43m   v1.xx.x-eks-xxxxxxx
 ```
 
 ### Step 7: Implementing Long-term Solutions
@@ -230,6 +209,7 @@ prod-ds-ll4lv               1/1     Running   0          1m
 ```
 
 #### 8.2. Check pod limits
+
 ```bash
 $ kubectl get pods -n prod -o custom-columns="NAME:.metadata.name,CPU_REQUEST:.spec.containers[*].resources.requests.cpu,MEM_REQUEST:.spec.containers[*].resources.requests.memory,CPU_LIMIT:.spec.containers[*].resources.limits.cpu,MEM_LIMIT:.spec.containers[*].resources.limits.memory"
 NAME                        CPU_REQUEST   MEM_REQUEST   CPU_LIMIT   MEM_LIMIT
@@ -243,6 +223,7 @@ prod-ds-srdqx               250m          256Mi         500m        512Mi
 ```
 
 #### 8.3 Check node CPU resource
+
 ```bash wait=300 test=false
 $ INSTANCE_ID=$(kubectl get node ${NODE_NAME_2} -o jsonpath='{.spec.providerID}' | cut -d '/' -f5) && aws cloudwatch get-metric-data --region $AWS_REGION --start-time $(date -u -d '1 hour ago' +"%Y-%m-%dT%H:%M:%SZ") --end-time $(date -u +"%Y-%m-%dT%H:%M:%SZ") --metric-data-queries '[{"Id":"cpu","MetricStat":{"Metric":{"Namespace":"AWS/EC2","MetricName":"CPUUtilization","Dimensions":[{"Name":"InstanceId","Value":"'$INSTANCE_ID'"}]},"Period":60,"Stat":"Average"}}]'
 {
@@ -264,15 +245,17 @@ $ INSTANCE_ID=$(kubectl get node ${NODE_NAME_2} -o jsonpath='{.spec.providerID}'
     "Messages": []
 }
 ```
+
 :::info
-Check that CPU is not over utilized. 
+Check that CPU is not over utilized.
 :::
+
 #### 8.4. Check node status
 
 ```bash
 $ kubectl get node --selector=kubernetes.io/hostname=$NODE_NAME_2
 NAME                                          STATUS   ROLES    AGE     VERSION
-ip-10-42-180-24.us-west-2.compute.internal    Ready    <none>   1h35m   v1.30.8-eks-aeac579
+ip-10-42-180-24.us-west-2.compute.internal    Ready    <none>   1h35m   v1.xx.x-eks-xxxxxxx
 ```
 
 ### Key Takeaways
