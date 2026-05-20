@@ -33,7 +33,7 @@ resource "time_sleep" "blueprints_addons_sleep" {
   ]
 
   create_duration  = "15s"
-  destroy_duration = "15s"
+  destroy_duration = "0s"
 }
 
 

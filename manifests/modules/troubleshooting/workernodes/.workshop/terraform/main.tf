@@ -94,7 +94,7 @@ data "aws_instances" "new_nodegroup_3_instances" {
     values = ["new_nodegroup_3"]
   }
   instance_state_names = ["running"]
-  depends_on           = [aws_eks_node_group.new_nodegroup_3]
+  depends_on           = [null_resource.create_nodegroup_3]
 }
 
 
@@ -311,25 +311,40 @@ resource "aws_launch_template" "new_nodegroup_3" {
   }
 }
 
-resource "aws_eks_node_group" "new_nodegroup_3" {
-  cluster_name    = data.aws_eks_cluster.cluster.id
-  node_group_name = "new_nodegroup_3"
-  node_role_arn   = aws_iam_role.new_nodegroup_3.arn
-  subnet_ids      = data.aws_subnets.private.ids
-
-  labels = {
-    "nodegroup-type" = "prod-app"
+resource "null_resource" "create_nodegroup_3" {
+  triggers = {
+    cluster_name = data.aws_eks_cluster.cluster.id
+    role_arn     = aws_iam_role.new_nodegroup_3.arn
+    subnet_ids   = join(",", data.aws_subnets.private.ids)
+    lt_id        = aws_launch_template.new_nodegroup_3.id
+    lt_version   = aws_launch_template.new_nodegroup_3.latest_version
   }
 
-  scaling_config {
-    desired_size = 1
-    max_size     = 2
-    min_size     = 0
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws eks create-nodegroup \
+        --cluster-name ${data.aws_eks_cluster.cluster.id} \
+        --nodegroup-name new_nodegroup_3 \
+        --node-role ${aws_iam_role.new_nodegroup_3.arn} \
+        --subnets ${join(" ", data.aws_subnets.private.ids)} \
+        --scaling-config minSize=0,maxSize=2,desiredSize=1 \
+        --labels nodegroup-type=prod-app \
+        --launch-template id=${aws_launch_template.new_nodegroup_3.id},version=${aws_launch_template.new_nodegroup_3.latest_version} \
+        --tags created-by=eks-workshop-v2,env=${data.aws_eks_cluster.cluster.id} || true
+      echo "Nodegroup creation initiated"
+    EOT
   }
 
-  launch_template {
-    id      = aws_launch_template.new_nodegroup_3.id
-    version = aws_launch_template.new_nodegroup_3.latest_version
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      aws eks delete-nodegroup \
+        --cluster-name ${self.triggers.cluster_name} \
+        --nodegroup-name new_nodegroup_3 2>/dev/null || true
+      aws eks wait nodegroup-deleted \
+        --cluster-name ${self.triggers.cluster_name} \
+        --nodegroup-name new_nodegroup_3 2>/dev/null || true
+    EOT
   }
 
   depends_on = [
@@ -356,7 +371,7 @@ resource "null_resource" "deploy_kubernetes_resources" {
     EOT
   }
 
-  depends_on = [aws_eks_node_group.new_nodegroup_3]
+  depends_on = [null_resource.create_nodegroup_3]
 }
 
 resource "null_resource" "increase_nodegroup_2" {

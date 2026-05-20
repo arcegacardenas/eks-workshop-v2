@@ -20,6 +20,7 @@ remove_tags_from_subnets() {
 
 remove_tags_from_subnets
 
-kubectl delete ingress -n ui ui --ignore-not-found
+kubectl delete ingress -n ui ui --ignore-not-found --wait=false
 
-uninstall-helm-chart aws-load-balancer-controller kube-system
+logmessage "Uninstalling helm chart aws-load-balancer-controller..."
+helm uninstall aws-load-balancer-controller -n kube-system --ignore-not-found 2>/dev/null || true

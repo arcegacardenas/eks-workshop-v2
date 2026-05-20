@@ -53,3 +53,6 @@ devenv.local.nix
 
 # direnv
 .direnv
+*.log
+*.pid
+test-report-*.json

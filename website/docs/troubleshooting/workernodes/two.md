@@ -84,6 +84,7 @@ $ echo $NEW_NODEGROUP_2_ASG_NAME
 #### 4.2. Check the AutoScaling Activities
 
 ```bash
+$ NEW_NODEGROUP_2_ASG_NAME=$(aws eks describe-nodegroup --cluster-name $EKS_CLUSTER_NAME --nodegroup-name new_nodegroup_2 --query 'nodegroup.resources.autoScalingGroups[0].name' --output text)
 $ aws autoscaling describe-scaling-activities --auto-scaling-group-name ${NEW_NODEGROUP_2_ASG_NAME} --query 'Activities[*].{AutoScalingGroupName:AutoScalingGroupName,Description:Description,Cause:Cause,StatusCode:StatusCode}'
 ```
 
@@ -129,6 +130,8 @@ Let's inspect the launched EC2 instance configuration:
 :::
 
 ```bash
+$ NEW_NODEGROUP_2_ASG_NAME=$(aws eks describe-nodegroup --cluster-name $EKS_CLUSTER_NAME --nodegroup-name new_nodegroup_2 --query 'nodegroup.resources.autoScalingGroups[0].name' --output text)
+$ NEW_NODEGROUP_2_INSTANCE_ID=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names $NEW_NODEGROUP_2_ASG_NAME --query 'AutoScalingGroups[0].Instances[0].InstanceId' --output text)
 $ aws ec2 describe-instances --instance-ids $NEW_NODEGROUP_2_INSTANCE_ID --query 'Reservations[*].Instances[*].{InstanceState: State.Name, SubnetId: SubnetId, VpcId: VpcId, InstanceProfile: IamInstanceProfile, SecurityGroups: SecurityGroups}' --output json
 ```
 
@@ -223,6 +226,7 @@ Output:
 :::
 
 ```bash timeout=15 hook=fix-2-2 hookTimeout=20
+$ NEW_NODEGROUP_2_ROUTETABLE_ID=$(aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=$(aws ec2 describe-subnets --filters "Name=tag:Name,Values=*NewPrivateSubnet*" --query 'Subnets[0].SubnetId' --output text)" --query 'RouteTables[0].RouteTableId' --output text)
 $ aws ec2 describe-route-tables --route-table-ids $NEW_NODEGROUP_2_ROUTETABLE_ID --query 'RouteTables[0].Routes'
 ```
 
@@ -263,6 +267,8 @@ The root cause is identified as missing internet access for the worker nodes. Le
 #### 6.1. Add NAT Gateway route
 
 ```bash
+$ NEW_NODEGROUP_2_ROUTETABLE_ID=$(aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=$(aws ec2 describe-subnets --filters "Name=tag:Name,Values=*NewPrivateSubnet*" --query 'Subnets[0].SubnetId' --output text)" --query 'RouteTables[0].RouteTableId' --output text)
+$ DEFAULT_NODEGROUP_NATGATEWAY_ID=$(aws ec2 describe-nat-gateways --filter "Name=tag:created-by,Values=eks-workshop-v2" "Name=state,Values=available" --query 'NatGateways[0].NatGatewayId' --output text)
 $ aws ec2 create-route --route-table-id $NEW_NODEGROUP_2_ROUTETABLE_ID --destination-cidr-block 0.0.0.0/0 --nat-gateway-id $DEFAULT_NODEGROUP_NATGATEWAY_ID
 ```
 
@@ -277,6 +283,7 @@ Output:
 #### 6.2. Verify the new route
 
 ```bash
+$ NEW_NODEGROUP_2_ROUTETABLE_ID=$(aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=$(aws ec2 describe-subnets --filters "Name=tag:Name,Values=*NewPrivateSubnet*" --query 'Subnets[0].SubnetId' --output text)" --query 'RouteTables[0].RouteTableId' --output text)
 $ aws ec2 describe-route-tables --route-table-ids $NEW_NODEGROUP_2_ROUTETABLE_ID --query 'RouteTables[*].{RouteTableId:RouteTableId,VpcId:VpcId,Routes:Routes}'
 ```
 

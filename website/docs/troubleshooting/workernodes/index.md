@@ -10,7 +10,7 @@ In the following scenarios for worker nodes we will learn how to troubleshoot va
 :::tip Before you start
 Prepare your environment for this section:
 
-```bash timeout=600 wait=300
+```bash timeout=1800 wait=300
 $ prepare-environment troubleshooting/workernodes
 ```
 

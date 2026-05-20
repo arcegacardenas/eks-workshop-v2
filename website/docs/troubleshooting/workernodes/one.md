@@ -121,6 +121,7 @@ $ echo $NEW_NODEGROUP_1_ASG_NAME
 #### 4.2. Check the AutoScaling Activities
 
 ```bash
+$ NEW_NODEGROUP_1_ASG_NAME=$(aws eks describe-nodegroup --cluster-name $EKS_CLUSTER_NAME --nodegroup-name new_nodegroup_1 --query 'nodegroup.resources.autoScalingGroups[0].name' --output text)
 $ aws autoscaling describe-scaling-activities --auto-scaling-group-name ${NEW_NODEGROUP_1_ASG_NAME}
 
 {
@@ -155,6 +156,7 @@ Let's check the Launch Template for encryption settings:
 #### 5.1. Find the Launch Template ID from the ASG or managed nodegroup. In this example we will use ASG
 
 ```bash
+$ NEW_NODEGROUP_1_ASG_NAME=$(aws eks describe-nodegroup --cluster-name $EKS_CLUSTER_NAME --nodegroup-name new_nodegroup_1 --query 'nodegroup.resources.autoScalingGroups[0].name' --output text)
 $ aws autoscaling describe-auto-scaling-groups \
 --auto-scaling-group-names ${NEW_NODEGROUP_1_ASG_NAME} \
 --query 'AutoScalingGroups[0].MixedInstancesPolicy.LaunchTemplate.LaunchTemplateSpecification.LaunchTemplateId' \
@@ -168,6 +170,7 @@ $ aws autoscaling describe-auto-scaling-groups \
 :::
 
 ```bash
+$ NEW_NODEGROUP_1_LT_ID=$(aws eks describe-nodegroup --cluster-name $EKS_CLUSTER_NAME --nodegroup-name new_nodegroup_1 --query 'nodegroup.launchTemplate.id' --output text)
 $ aws ec2 describe-launch-template-versions --launch-template-id ${NEW_NODEGROUP_1_LT_ID} --query 'LaunchTemplateVersions[].{LaunchTemplateId:LaunchTemplateId,DefaultVersion:DefaultVersion,BlockDeviceMappings:LaunchTemplateData.BlockDeviceMappings}'
 
 {
@@ -200,6 +203,7 @@ $ aws ec2 describe-launch-template-versions --launch-template-id ${NEW_NODEGROUP
 :::
 
 ```bash
+$ NEW_KMS_KEY_ID=$(aws eks describe-nodegroup --cluster-name $EKS_CLUSTER_NAME --nodegroup-name new_nodegroup_1 --query 'nodegroup.launchTemplate.id' --output text | xargs -I{} aws ec2 describe-launch-template-versions --launch-template-id {} --query 'LaunchTemplateVersions[0].LaunchTemplateData.BlockDeviceMappings[0].Ebs.KmsKeyId' --output text | awk -F'/' '{print $NF}')
 $ aws kms describe-key --key-id ${NEW_KMS_KEY_ID} --query 'KeyMetadata.{KeyId:KeyId,Enabled:Enabled,KeyUsage:KeyUsage,KeyState:KeyState,KeyManager:KeyManager}'
 
 {
@@ -223,6 +227,7 @@ You can also view this information in the KMS Console. The key will have an alia
 #### 6.2. Check the key policy for the CMK
 
 ```bash
+$ NEW_KMS_KEY_ID=$(aws eks describe-nodegroup --cluster-name $EKS_CLUSTER_NAME --nodegroup-name new_nodegroup_1 --query 'nodegroup.launchTemplate.id' --output text | xargs -I{} aws ec2 describe-launch-template-versions --launch-template-id {} --query 'LaunchTemplateVersions[0].LaunchTemplateData.BlockDeviceMappings[0].Ebs.KmsKeyId' --output text | awk -F'/' '{print $NF}')
 $ aws kms get-key-policy --key-id ${NEW_KMS_KEY_ID} | jq -r '.Policy | fromjson'
 {
   "Version": "2012-10-17",
@@ -248,6 +253,7 @@ The key policy is missing required permissions for the AutoScaling service role.
 #### 7.1. Add the required KMS key policy
 
 ```bash
+$ NEW_KMS_KEY_ID=$(aws eks describe-nodegroup --cluster-name $EKS_CLUSTER_NAME --nodegroup-name new_nodegroup_1 --query 'nodegroup.launchTemplate.id' --output text | xargs -I{} aws ec2 describe-launch-template-versions --launch-template-id {} --query 'LaunchTemplateVersions[0].LaunchTemplateData.BlockDeviceMappings[0].Ebs.KmsKeyId' --output text | awk -F'/' '{print $NF}')
 $ NEW_POLICY=$(echo '{"Version":"2012-10-17","Id":"default","Statement":[{"Sid":"EnableIAMUserPermissions","Effect":"Allow","Principal":{"AWS":"arn:aws:iam::'"$AWS_ACCOUNT_ID"':root"},"Action":"kms:*","Resource":"*"},{"Sid":"AllowAutoScalingServiceRole","Effect":"Allow","Principal":{"AWS":"arn:aws:iam::'"$AWS_ACCOUNT_ID"':role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"},"Action":["kms:Encrypt","kms:Decrypt","kms:ReEncrypt*","kms:GenerateDataKey*","kms:DescribeKey"],"Resource":"*"},{"Sid":"AllowAttachmentOfPersistentResources","Effect":"Allow","Principal":{"AWS":"arn:aws:iam::'"$AWS_ACCOUNT_ID"':role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"},"Action":"kms:CreateGrant","Resource":"*","Condition":{"Bool":{"kms:GrantIsForAWSResource":"true"}}}]}') && aws kms put-key-policy --key-id "$NEW_KMS_KEY_ID" --policy-name default --policy "$NEW_POLICY" && aws kms get-key-policy --key-id "$NEW_KMS_KEY_ID" --policy-name default | jq -r '.Policy | fromjson'
 ```
 
