@@ -5,16 +5,23 @@ before() {
 }
 
 after() {
-  sleep 10
+  local timeout=300
+  local interval=10
+  local elapsed=0
 
-  
-  export node_output=$(kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_2)
-  
-  if [[ $node_output == *".internal"* ]]; then
- 
-    exit 0
-  fi  
-  # If we get here, it means we didn't find resources when we should have
+  while [ $elapsed -lt $timeout ]; do
+    export node_output=$(kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_2 2>&1)
+
+    if [[ $node_output == *".internal"* ]]; then
+      echo "Success: Node found in nodegroup new_nodegroup_2"
+      exit 0
+    fi
+
+    echo "Waiting for node to join... (${elapsed}s/${timeout}s)"
+    sleep $interval
+    elapsed=$((elapsed + interval))
+  done
+
   >&2 echo "Did not find any nodes when expecting a node"
   exit 1
 }
