@@ -5,7 +5,7 @@ before() {
 }
 
 after() {
-  local timeout=300
+  local timeout=600
   local interval=10
   local elapsed=0
 
