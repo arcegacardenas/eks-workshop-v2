@@ -10,16 +10,20 @@ In the following scenarios for worker nodes we will learn how to troubleshoot va
 :::tip Before you start
 Prepare your environment for this section:
 
-```bash timeout=1800 wait=300
+```bash timeout=2400 wait=300
 $ prepare-environment troubleshooting/workernodes
 ```
 
 You can view the Terraform that applies these changes [here](https://github.com/VAR::MANIFESTS_OWNER/VAR::MANIFESTS_REPOSITORY/tree/VAR::MANIFESTS_REF/manifests/modules/troubleshooting/workernodes/.workshop/terraform).
 
 :::
+:::warning
+The preparation of this lab can take up to **35 minutes** due to the creation of multiple managed node groups with intentional misconfigurations. Please be patient and use this time to read through the lab introduction.
+:::
+
 :::info
 
-The preparation of the lab might take a couple of minutes and it will make the following changes to your lab environment:
+The prepare-environment script will make the following changes to your lab environment:
 
 - Create a new managed node groups called new_nodegroup_1, new_nodegroup_2, new_nodegroup_3 with desired managed node group count to 1
 - Introduce a problem to the managed node groups which causes node join failure and ready issue
