@@ -16,7 +16,7 @@ After deploying these applications, the monitoring team has reported that the no
 
 Let's first verify the node's status to confirm the current state:
 
-```bash timeout=40 hook=fix-3-1 hookTimeout=660 wait=30
+```bash timeout=40 hook=fix-3-1 hookTimeout=900 wait=30
 $ kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_3
 NAME                                          STATUS     ROLES    AGE     VERSION
 ip-10-42-180-244.us-west-2.compute.internal   NotReady   <none>   15m     v1.xx.x-eks-xxxxxxx

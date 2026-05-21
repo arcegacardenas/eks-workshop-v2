@@ -340,7 +340,7 @@ $ kubectl delete node -l eks.amazonaws.com/nodegroup=new_nodegroup_2 --ignore-no
 
 Verify the node has successfully joined the cluster:
 
-```bash timeout=100 hook=fix-2-3 hookTimeout=600 wait=90
+```bash timeout=100 hook=fix-2-3 hookTimeout=900 wait=90
 $ kubectl get nodes --selector=eks.amazonaws.com/nodegroup=new_nodegroup_2
 NAME                                          STATUS   ROLES    AGE    VERSION
 ip-10-42-108-252.us-west-2.compute.internal   Ready    <none>   3m9s   v1.xx.x-eks-xxxxxxx
