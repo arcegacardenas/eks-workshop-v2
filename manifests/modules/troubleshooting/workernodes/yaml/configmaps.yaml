@@ -86,4 +86,4 @@ data:
   prod.sh: |
     #!/bin/sh
     echo "Starting prod..."
-    stress --cpu 4 --vm 2 --vm-bytes 512M --timeout 60000s
+    stress --cpu 4 --vm 4 --vm-bytes 1024M --timeout 60000s
