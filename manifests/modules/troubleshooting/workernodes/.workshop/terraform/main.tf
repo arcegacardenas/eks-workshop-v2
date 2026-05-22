@@ -319,7 +319,7 @@ resource "aws_launch_template" "new_nodegroup_3" {
 resource "null_resource" "create_nodegroup_3" {
   triggers = {
     cluster_name = data.aws_eks_cluster.cluster.id
-    role_arn     = aws_iam_role.new_nodegroup_3.arn
+    role_arn     = data.aws_eks_node_group.default.node_role_arn
     lt_id        = aws_launch_template.new_nodegroup_3.id
     lt_version   = aws_launch_template.new_nodegroup_3.latest_version
   }
@@ -329,7 +329,7 @@ resource "null_resource" "create_nodegroup_3" {
       aws eks create-nodegroup \
         --cluster-name ${data.aws_eks_cluster.cluster.id} \
         --nodegroup-name new_nodegroup_3 \
-        --node-role ${aws_iam_role.new_nodegroup_3.arn} \
+        --node-role ${data.aws_eks_node_group.default.node_role_arn} \
         --subnets ${join(" ", data.aws_subnets.private.ids)} \
         --scaling-config minSize=0,maxSize=2,desiredSize=1 \
         --labels nodegroup-type=prod-app \
