@@ -30,7 +30,7 @@ spec:
         image: polinux/stress
         resources:
           requests:
-            memory: 4Gi
+            memory: 128Mi
             cpu: 100m
         command: ["/bin/sh"]
         args: ["/prod/prod.sh"]
