@@ -31,6 +31,20 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 source $SCRIPT_DIR/lib/common-env.sh
 
+# Authenticate to ECR Public to avoid anonymous-pull rate limiting (HTTP 403)
+# on the base images. Works for both docker and finch via $CONTAINER_CLI.
+# Note: ECR Public's API is only available in us-east-1 - this is NOT the
+# workload region and must not be parameterized. The registry host
+# (public.ecr.aws) is global.
+if aws sts get-caller-identity >/dev/null 2>&1; then
+  echo "Authenticating to ECR Public..."
+  aws ecr-public get-login-password --region us-east-1 \
+    | $CONTAINER_CLI login --username AWS --password-stdin public.ecr.aws \
+    || echo "Warning: ECR Public login failed; continuing (images may be cached)"
+else
+  echo "Warning: no valid AWS credentials found; skipping ECR Public login"
+fi
+
 echo "Building container images..."
 
 container_image='eks-workshop-test'
