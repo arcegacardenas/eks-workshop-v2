@@ -89,6 +89,10 @@ source $SCRIPT_DIR/lib/resolve-source-ip.sh
 # See the comment there for why this cannot live inside the container.
 hooks_dir="$SCRIPT_DIR/../.workshop-state/$EKS_CLUSTER_NAME/hooks"
 mkdir -p "$hooks_dir"
+# The container runs as ec2-user, but on a host (e.g. CI) this bind-mounted
+# directory is owned by a different UID, so ec2-user cannot write the cleanup
+# hook into it (breaking fastpaths prepare-environment). Make it world-writable.
+chmod 777 "$hooks_dir"
 
 echo "Running test suite..."
 
@@ -100,6 +104,7 @@ $CONTAINER_CLI run $background_args $dns_args \
   -v $SCRIPT_DIR/../manifests:/eks-workshop/manifests \
   -v $hooks_dir:/eks-workshop/hooks \
   -e 'EKS_CLUSTER_NAME' -e 'EKS_CLUSTER_AUTO_NAME' -e 'AWS_REGION' -e 'RESOURCES_PRECREATED' -e 'BASE_INBOUND_CIDRS' \
+  -e 'ARGOCD_ADMIN_EMAIL' \
   $aws_credential_args $container_image -g "${actual_glob}" --hook-timeout 3600 --timeout 3600 $output_args ${AWS_EKS_WORKSHOP_TEST_FLAGS} || exit_code=$?
 
 if [ $exit_code -eq 0 ]; then

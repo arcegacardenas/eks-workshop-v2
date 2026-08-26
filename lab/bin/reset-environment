@@ -108,6 +108,34 @@ if [ ! -z "${REPOSITORY_REF}" ] && [ -z "${RESET_NO_DELETE}" ]; then
 fi
 
 if [ ! -z "$module" ]; then
+  # The module directory is the registry of valid module names. reset-environment
+  # derives the manifests, the cleanup hook and the Terraform to apply from this
+  # path, and reports the name to analytics, so a path that does not exist would
+  # otherwise reset the environment, install nothing and still report success.
+  #
+  # Checked here because $manifests_path is only populated by the repository
+  # refresh above, and before anything is torn down so a bad path costs nothing.
+  # Labs with no manifests of their own register an empty directory to be found.
+  module_dir="$manifests_path/modules/$module"
+
+  if [[ "$module" == fastpaths/* ]]; then
+    # fastpaths content addresses a module by its first two path segments, and uses
+    # the singular form where the directory is plural (developer -> developers).
+    fastpaths_dir="$manifests_path/modules/$(echo "$module" | cut -d'/' -f1-2)"
+
+    if [ -d "$fastpaths_dir" ]; then
+      module_dir="$fastpaths_dir"
+    elif [ -d "${fastpaths_dir}s" ]; then
+      module_dir="${fastpaths_dir}s"
+    fi
+  fi
+
+  if [ ! -d "$module_dir" ]; then
+    logmessage "🚨 ${RED}Error:${NC} no module registered at manifests/modules/$module"
+    logmessage "Check the module path in this lab's prepare-environment command."
+    exit 1
+  fi
+
   ANALYTICS_ENDPOINT=${ANALYTICS_ENDPOINT:-""}
 
   if [ ! -z "$ANALYTICS_ENDPOINT" ]; then
@@ -143,35 +171,52 @@ if [ ! -z "$module" ]; then
     logmessage "\n📦 Deploying base application..."
     kubectl apply -k $base_path
 
+    # Stage the lab Terraform on disk every run so we can read outputs
+    # (or apply, if first run) against the kubernetes-secret backend.
+    rm -rf /eks-workshop/terraform
+    mkdir -p /eks-workshop/terraform
+    cp -R $manifests_path/.workshop/terraform/* /eks-workshop/terraform
+    rm -f /eks-workshop/terraform/lab-fastpaths.tf
+
+    mkdir -p /eks-workshop/terraform/lab
+    cp -R $manifests_path/modules/fastpaths/developers/.workshop/terraform/* /eks-workshop/terraform/lab
+    cp $manifests_path/.workshop/terraform/lab-fastpaths.tf /eks-workshop/terraform/lab.tf
+
+    mkdir -p /eks-workshop/terraform-data
+    export TF_DATA_DIR="/eks-workshop/terraform-data"
+    export TF_VAR_eks_cluster_id="$EKS_CLUSTER_NAME"
+    export TF_VAR_eks_cluster_auto_id="$EKS_CLUSTER_AUTO_NAME"
+    export TF_VAR_resources_precreated="false"
+
+    # The shared preprovision terraform carries the ACK/Argo CD/kro capability
+    # resources (plus an IAM Identity Center user/group and a CodeCommit repo),
+    # but they must ONLY provision for the eks-capabilities fast path. Gate them
+    # with TF_VAR_enable_eks_capabilities so the developer/operator paths never
+    # create capabilities — and never require an IAM Identity Center instance,
+    # which would otherwise fail their apply on the Argo CD IDC precondition.
+    if [[ "$module" = "fastpaths/eks-capabilities"* ]]; then
+      export TF_VAR_enable_eks_capabilities="true"
+    else
+      export TF_VAR_enable_eks_capabilities="false"
+    fi
+
+
+    tf_dir=$(realpath --relative-to="$PWD" '/eks-workshop/terraform')
+
     # One-time preprovision: install KEDA, fluent-bit, external-secrets etc.
     TF_PID=""
     if [ "$RESOURCES_PRECREATED" != "true" ]; then
       logmessage "\n🔧 First time setup: provisioning fastpaths infrastructure (this only runs once)..."
-
-      rm -rf /eks-workshop/terraform
-      mkdir -p /eks-workshop/terraform
-      cp -R $manifests_path/.workshop/terraform/* /eks-workshop/terraform
-      rm -f /eks-workshop/terraform/lab-fastpaths.tf
-
-      # Copy lab files BEFORE destroy so it can clean up partial state
-      # from a previously interrupted apply
-      mkdir -p /eks-workshop/terraform/lab
-      cp -R $manifests_path/modules/fastpaths/developers/.workshop/terraform/* /eks-workshop/terraform/lab
-      cp $manifests_path/.workshop/terraform/lab-fastpaths.tf /eks-workshop/terraform/lab.tf
-
-      mkdir -p /eks-workshop/terraform-data
-      export TF_DATA_DIR="/eks-workshop/terraform-data"
-      export TF_VAR_eks_cluster_id="$EKS_CLUSTER_NAME"
-      export TF_VAR_eks_cluster_auto_id="$EKS_CLUSTER_AUTO_NAME"
-      export TF_VAR_resources_precreated="false"
-
-      tf_dir=$(realpath --relative-to="$PWD" '/eks-workshop/terraform')
 
       terraform -chdir="$tf_dir" init -upgrade
       terraform -chdir="$tf_dir" destroy --auto-approve
 
       terraform -chdir="$tf_dir" apply --auto-approve &
       TF_PID=$!
+    else
+      # Already provisioned — just init so we can read outputs from the
+      # kubernetes-backed Terraform state.
+      terraform -chdir="$tf_dir" init -upgrade >/dev/null
     fi
 
     logmessage "\n⏳ Waiting for application to become ready..."
@@ -197,6 +242,16 @@ if [ ! -z "$module" ]; then
       fi
       logmessage "\n✅ Fastpaths infrastructure provisioned!"
     fi
+
+    # Export the lab Terraform's `environment_variables` output into the IDE
+    # shell so labs and test hooks can reference values like
+    # EKS_CAP_ACK_CAPABILITY and EKS_CAP_DDB_TABLE. Mirrors the same write
+    # done at the bottom of this script for non-fastpaths labs. Runs whether
+    # or not preprovision just executed, so re-entries pick up the values.
+    terraform -chdir="$tf_dir" output -json \
+      | jq -r '.environment.value | select(. != null)' \
+      > ~/.bashrc.d/workshop-env.bash
+    echo "export INBOUND_CIDRS='${INBOUND_CIDRS}'" >> ~/.bashrc.d/workshop-env.bash
 
     # Save cleanup hook for this module's path (developer or operator).
     # Empty the directory rather than removing it: local runs bind mount it from
