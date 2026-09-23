@@ -9,6 +9,15 @@ output "idc_instance_arn" {
   value       = tolist(data.aws_ssoadmin_instances.main.arns)[0]
 }
 
+# Which of the two provisioning paths ran. Worth a line in the build log on its own:
+# the symptoms of "CloudFormation was supposed to create the instance but the ARN
+# never reached Terraform" and "Terraform created one it should not have" are
+# otherwise indistinguishable from the resources that come out the far end.
+output "idc_instance_source" {
+  description = "Whether the Identity Center instance came from outside Terraform (Workshop Studio team stack) or was created by this module"
+  value       = local.idc_externally_provisioned ? "external (${var.idc_instance_arn})" : "created by this module"
+}
+
 output "idc_identity_store_id" {
   description = "Identity store holding the workshop user and group"
   value       = local.identity_store_id

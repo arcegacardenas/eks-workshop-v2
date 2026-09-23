@@ -107,12 +107,19 @@ done < <(find $manifests_dir/modules -type d -name "preprovision" -print0)
 if [ -n "$idc_required" ]; then
   cp -R $idc_base_dir $conf_dir/$idc_base_target
 
+  # idc_instance_arn has to be passed through explicitly: this wrapper is generated,
+  # so the module sees nothing of the root's variables unless it is named here. It
+  # carries the ARN of an instance created outside Terraform -- at a Workshop Studio
+  # event, a native AWS::SSO::Instance in the team stack, because the SCP there
+  # denies sso:CreateInstance to this build's role. Empty everywhere else, which
+  # leaves the layer creating its own.
   cat << EOF > $conf_dir/$idc_base_target.tf
 module "gen_idc_base" {
   source = "./$idc_base_target"
 
-  eks_cluster_id = local.eks_cluster_id
-  tags           = local.tags
+  eks_cluster_id   = local.eks_cluster_id
+  idc_instance_arn = var.idc_instance_arn
+  tags             = local.tags
 }
 EOF
 

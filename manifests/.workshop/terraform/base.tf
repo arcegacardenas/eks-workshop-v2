@@ -59,6 +59,22 @@ variable "inbound_cidrs" {
   default     = "0.0.0.0/0"
 }
 
+# Declared here so `TF_VAR_idc_instance_arn` is picked up from the environment, the
+# way `TF_VAR_eks_cluster_id` already is. `hack/pre-provision-resources.sh` forwards
+# it to the shared Identity Center layer, which is the only thing that reads it.
+#
+# Set at a Workshop Studio event, where the team CloudFormation stack creates the
+# Identity Center instance as a native resource and passes its ARN to the
+# provisioning CodeBuild project. Empty everywhere else, which leaves the layer
+# creating and owning its own instance. Unused on the lab path, which also loads
+# this file.
+# tflint-ignore: terraform_unused_declarations
+variable "idc_instance_arn" {
+  description = "ARN of an externally provisioned IAM Identity Center instance. Empty means pre-provisioning creates and owns one."
+  type        = string
+  default     = ""
+}
+
 # tflint-ignore: terraform_unused_declarations
 variable "enable_eks_capabilities" {
   description = "Gate for the fastpaths/eks-capabilities resources (ACK/Argo CD/kro capabilities + IAM Identity Center user/group + CodeCommit repo). reset-environment sets this true only for the eks-capabilities path; developer/operator paths leave it false so no capabilities and no IAM Identity Center instance are required."

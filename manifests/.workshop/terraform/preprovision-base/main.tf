@@ -1,12 +1,37 @@
 # IAM Identity Center for every lab that needs it.
 #
-# Identity Center is the one thing a lab cannot provision for itself. There is a
-# single instance per account per Region, enabling it is effectively irreversible,
+# Identity Center is the one thing a lab cannot provision for itself. There is one
+# instance per account across all Regions, enabling it is effectively irreversible,
 # and the directory it creates may end up holding real identities. So exactly one
-# place creates it, and that place is only ever reached by the Workshop Studio
-# provisioning pipeline.
+# place in this repository can create it -- this module -- and nothing a lab is able
+# to reach ever gets here.
 #
-# That "only ever reached" is structural rather than a flag. This directory lives
+# The instance can arrive two ways, and `var.idc_instance_arn` says which:
+#
+#   Empty  -- this module creates the instance itself, with the provisioner below.
+#             Used by the GitHub Actions module tests and by anyone running
+#             `make pre-provision` in their own account.
+#
+#   Set    -- something outside Terraform already created it and owns its
+#             lifecycle. At a Workshop Studio event that is a native
+#             `AWS::SSO::Instance` in the team CloudFormation stack, whose ARN
+#             reaches us as `TF_VAR_idc_instance_arn` on the CodeBuild project.
+#             This module then creates nothing and deletes nothing at the instance
+#             level.
+#
+# The split exists because of an SCP, not a preference. Workshop Studio denies
+# `sso:CreateInstance` to every role in a team account except the deployment role
+# CloudFormation runs as, so `aws sso-admin create-instance` from the provisioning
+# CodeBuild project fails with an explicit deny while a native CloudFormation
+# resource in the same account succeeds. Everything else this module does --
+# `identitystore:*` for the user, group and membership, Secrets Manager, and the
+# sign-in that sets the first password -- is permitted, so only the instance moves.
+#
+# Both paths converge immediately: the instance is discovered below with
+# `aws_ssoadmin_instances` rather than taken from the variable, so every resource
+# after that point is identical no matter who created it.
+#
+# That unreachability is structural rather than a flag. This directory lives
 # outside `manifests/modules`, so `hack/pre-provision-resources.sh` does not pick it
 # up as a module, and no lab root has a `source` pointing at it. Terraform only
 # loads what a `source` reaches, so lab code cannot apply this even by accident.
@@ -22,11 +47,15 @@ data "aws_region" "current" {}
 data "aws_caller_identity" "current" {}
 
 locals {
+  # Whether the instance is somebody else's to create and destroy. Drives `count` on
+  # the provisioner below, so when it is true Terraform neither creates an instance
+  # nor deletes one, and cannot race the owner in either direction.
+  idc_externally_provisioned = var.idc_instance_arn != ""
+
   # Instances created here carry this name, and the destroy provisioner only removes
   # an instance with it, so an instance we adopted is never torn down. It is not
-  # per-environment on purpose: there is only one instance per account per Region,
-  # so a second environment in the same account adopts this one rather than getting
-  # its own.
+  # per-environment on purpose: there is only one instance per account, so a second
+  # environment in the same account adopts this one rather than getting its own.
   idc_instance_name = "eks-workshop"
 
   # Everything we write *into* the directory is per-environment, because the
@@ -49,6 +78,11 @@ locals {
 }
 
 resource "null_resource" "idc_instance" {
+  # Nothing to do when the instance was provisioned outside Terraform: skipping the
+  # resource entirely skips its destroy provisioner too, so the owner is the only
+  # thing that can delete the instance.
+  count = local.idc_externally_provisioned ? 0 : 1
+
   triggers = {
     region        = data.aws_region.current.id
     instance_name = local.idc_instance_name
@@ -100,8 +134,20 @@ resource "null_resource" "idc_instance" {
       fi
 
       echo "Creating IAM Identity Center instance $NAME..."
-      IDC_ARN=$(aws sso-admin create-instance --name "$NAME" \
-        --region $REGION --output json | jq -r '.InstanceArn')
+
+      # Deliberately two statements rather than one pipeline. `set -e` does not fire
+      # on `X=$(aws ... | jq ...)`, because the pipeline's status is jq's, so a failed
+      # create-instance left IDC_ARN empty and the poll below then ran sixty times
+      # against an invalid ARN and reported a timeout -- with the real error hundreds
+      # of lines earlier in the build log. The assignment on its own does trip set -e.
+      CREATE_JSON=$(aws sso-admin create-instance --name "$NAME" --region $REGION --output json)
+      IDC_ARN=$(echo "$CREATE_JSON" | jq -r '.InstanceArn // empty')
+
+      if [ -z "$IDC_ARN" ]; then
+        echo "ERROR: create-instance returned no InstanceArn: $CREATE_JSON" >&2
+        exit 1
+      fi
+
       echo "IAM Identity Center ARN: $IDC_ARN"
 
       ACTIVE=false
@@ -184,8 +230,56 @@ resource "null_resource" "idc_instance" {
   }
 }
 
-# Deferred to apply time: the instance, and therefore its identity store, does not
-# exist until the provisioner above has run.
+# The mirror of the MFA step at the end of the provisioner above, for the path where
+# somebody else created the instance.
+#
+# The provisioner above relaxes MFA only on an instance it created itself, and
+# refuses to touch the settings of one it merely adopted -- a stranger's sign-in
+# policy is not ours to change. An instance arriving through `var.idc_instance_arn`
+# is not a stranger's: it was created for this environment moments earlier and is
+# torn down with it, so the same reasoning that permits the change there permits it
+# here.
+#
+# It has to happen somewhere, because a new instance asks users to register an MFA
+# device on first sign-in and that prompt replaces the forced password change
+# `activate-user.py` drives. Without this, moving instance creation into
+# CloudFormation would trade a failed create for a failed activation.
+#
+# Best-effort, like the original: a failure here costs participants an MFA
+# enrollment prompt, which is recoverable, so it must not fail the event build.
+resource "null_resource" "idc_external_mfa" {
+  count = local.idc_externally_provisioned ? 1 : 0
+
+  triggers = {
+    region       = data.aws_region.current.id
+    instance_arn = var.idc_instance_arn
+    script       = filemd5("${path.module}/disable-mfa.py")
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOF
+      if ! python3 -c 'import boto3' 2>/dev/null; then
+        echo "Installing boto3 to configure MFA enforcement..."
+        # See the identical retry in the provisioner above: PEP 668 marks the system
+        # Python externally managed on a GitHub Actions runner. Every host that
+        # reaches this is disposable, so installing into it anyway is fine.
+        python3 -m pip install --quiet --disable-pip-version-check boto3 \
+          || python3 -m pip install --quiet --disable-pip-version-check \
+               --break-system-packages boto3 \
+          || true
+      fi
+
+      python3 "${abspath("${path.module}/disable-mfa.py")}" --region "${data.aws_region.current.id}" \
+        || echo "WARNING: could not disable MFA enforcement on ${var.idc_instance_arn}; participants may be asked to register an MFA device"
+    EOF
+  }
+}
+
+# Deferred to apply time: on the path where this module creates the instance, its
+# identity store does not exist until the provisioner above has run. On the external
+# path the instance already exists, and the CloudFormation dependency that carried
+# `var.idc_instance_arn` into the build guarantees it -- but the data source is still
+# how both paths read it, so that everything below is identical either way.
 data "aws_ssoadmin_instances" "main" {
   depends_on = [null_resource.idc_instance]
 }
@@ -274,7 +368,11 @@ resource "null_resource" "idc_user_activation" {
     # The user has to exist, and MFA enforcement has to already be relaxed:
     # with MFA enforced the portal shows a device-registration prompt instead of
     # the password change page, and activation cannot complete.
+    #
+    # Exactly one of these two relaxes MFA -- they have opposing `count`s -- so both
+    # are listed and the empty one is a no-op.
     null_resource.idc_instance,
+    null_resource.idc_external_mfa,
     aws_identitystore_user.argocd_admin,
     aws_secretsmanager_secret.argocd_admin,
   ]
